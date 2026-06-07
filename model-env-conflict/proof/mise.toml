@@ -1,0 +1,12 @@
+# This folder pins Python 3.10 (safety-gymnasium's upstream ceiling), overriding the
+# repo-wide Python 3.11 from the root mise.toml — the proof must run on the same
+# interpreter the safety env forces. Dependencies are managed by pyproject.toml + uv.
+
+[tools]
+python = "3.10"
+
+[settings]
+python.uv_venv_auto = "create|source"
+
+[env]
+UV_PYTHON = { value = "{{ tools.python.path }}", tools = true }
