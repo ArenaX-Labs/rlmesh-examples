@@ -3,16 +3,10 @@ name = "rlmesh-model-env-conflict-agent"
 version = "0.0.0"
 requires-python = ">=3.11"
 dependencies = [
-    "stable-baselines3>=2.7",
-    "gymnasium[mujoco]>=1.2",
-    "rlmesh",
-    "numpy",
-    "imageio[ffmpeg]",
-    "tqdm",
+  "stable-baselines3>=2.7",
+  "gymnasium[mujoco]>=1.2",
+  "rlmesh",
+  "numpy",
+  "imageio[ffmpeg]",
+  "tqdm",
 ]
-
-[dependency-groups]
-dev = ["pytest"]
-
-[tool.uv.sources]
-rlmesh = { path = "../../../rlmesh/python/rlmesh", editable = true }

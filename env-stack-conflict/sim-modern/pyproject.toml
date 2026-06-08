@@ -4,9 +4,3 @@ version = "0.0.0"
 # Modern stack: gymnasium 1.x + mujoco 3.x. Builds on 3.11.
 requires-python = ">=3.11"
 dependencies = ["gymnasium[mujoco]>=1.2", "mujoco==3.3.5", "rlmesh", "numpy"]
-
-[dependency-groups]
-dev = ["pytest"]
-
-[tool.uv.sources]
-rlmesh = { path = "../../../rlmesh/python/rlmesh", editable = true }

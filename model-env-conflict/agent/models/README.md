@@ -8,6 +8,7 @@
 - Seed: `0`
 - Device: CPU
 
-The checkpoint is included because the model-env conflict depends on loading a modern SB3/NumPy 2.x checkpoint while the target Safety-Gymnasium environment remains in an older Python 3.10 stack.
+The checkpoint is included so the demo can load a modern SB3/NumPy 2.x model while the target
+Safety-Gymnasium env stays on Python 3.10.
 
-The file is demo data generated from open source training code in this repository. It is intended for demonstration and regression testing, not as a benchmark-quality model.
+This is demo data from the training code in this repo, not a benchmark model.

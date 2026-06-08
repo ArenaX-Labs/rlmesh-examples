@@ -3,9 +3,3 @@ name = "rlmesh-model-env-conflict-sim-safety"
 version = "0.0.0"
 requires-python = "==3.10.*"
 dependencies = ["safety-gymnasium==1.0.0", "rlmesh", "numpy"]
-
-[dependency-groups]
-dev = ["pytest"]
-
-[tool.uv.sources]
-rlmesh = { path = "../../../rlmesh/python/rlmesh", editable = true }

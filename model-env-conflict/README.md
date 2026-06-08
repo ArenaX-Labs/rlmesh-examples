@@ -1,21 +1,21 @@
 # Model-Env Conflict
 
-A pretrained SAC agent evaluates an environment it cannot be installed beside.
+A pretrained SAC agent evaluates a safety env it cannot share a venv with.
 
 ## At A Glance
 
-| Piece | Stack | Address / Role |
-| --- | --- | --- |
-| `sim-safety` | Safety-Gymnasium 1.0.0, Gymnasium 0.28.1, MuJoCo 2.3.3, Python 3.10 | `5557` |
-| `agent` | Stable-Baselines3 SAC, Torch, Gymnasium/MuJoCo modern stack, Python 3.11 | connects to `5557` |
-| `proof` | Safety-compatible SB3 stack that tries to load the modern checkpoint | none |
+| Piece        | Stack                                                                    | Address / Role     |
+| ------------ | ------------------------------------------------------------------------ | ------------------ |
+| `sim-safety` | Safety-Gymnasium 1.0.0, Gymnasium 0.28.1, MuJoCo 2.3.3, Python 3.10      | `5557`             |
+| `agent`      | Stable-Baselines3 SAC, Torch, Gymnasium/MuJoCo modern stack, Python 3.11 | connects to `5557` |
+| `proof`      | Safety-compatible SB3 stack that tries to load the modern checkpoint     | none               |
 
-The demo evaluates one SAC checkpoint in two places:
+One SAC checkpoint runs in two places:
 
-| Environment | Where It Runs | Why |
-| --- | --- | --- |
-| `HalfCheetah-v5` | local agent process | Baseline from the modern stack the model was trained on. |
-| `SafetyHalfCheetahVelocity-v1` | remote safety process | Safety evaluation stack the model cannot be installed beside. |
+| Environment                    | Where It Runs         | Why                                                      |
+| ------------------------------ | --------------------- | -------------------------------------------------------- |
+| `HalfCheetah-v5`               | local agent process   | Baseline from the modern stack the model was trained on. |
+| `SafetyHalfCheetahVelocity-v1` | remote safety process | Safety stack the model cannot share a venv with.         |
 
 ## What RLMesh Changes
 
@@ -30,12 +30,10 @@ MuJoCo 2.3.3                    model.predict()
         --------------------->  RemoteEnv(:5557)
 ```
 
-The agent loads the checkpoint in the environment that understands it, then
-drives the safety env over RLMesh without importing Safety-Gymnasium locally.
+The agent loads the checkpoint where it works, then drives the safety env over RLMesh.
 
-This is the model-vs-env sibling of
-[`env-stack-conflict`](../env-stack-conflict/). That demo compares simulator
-stacks. This one keeps the model stack real.
+This is the model-vs-env sibling of [`env-stack-conflict`](../env-stack-conflict/): same idea, but
+the model stack is real.
 
 ## Run
 
@@ -55,9 +53,7 @@ cd model-env-conflict/agent
 uv run eval.py
 ```
 
-> [!TIP]
-> The SAC checkpoint is included. The first run creates each component's
-> `.venv`; later runs reuse it.
+The SAC checkpoint is included. First run creates each `.venv`; later runs reuse it.
 
 No `mise`? Start the safety server with Python 3.10 explicitly:
 
@@ -68,7 +64,7 @@ uv run --python 3.10 serve.py
 
 ## Expected Output
 
-The agent loads one policy, evaluates it locally, then evaluates it remotely:
+The agent evaluates one policy locally, then remotely:
 
 ```text
 === one pretrained SAC policy, two stacks it cannot share a venv with ===
@@ -79,22 +75,21 @@ safety-halfcheetah-velocity  steps= 100 return=<float> cost=<float>
 
 Read it as:
 
-| Signal | Meaning |
-| --- | --- |
-| Same policy | The checkpoint is loaded once in the modern agent stack. |
-| Remote safety result | The agent can evaluate the safety env without installing it locally. |
+| Signal                 | Meaning                                                                  |
+| ---------------------- | ------------------------------------------------------------------------ |
+| Same policy            | The checkpoint loads once in the modern agent stack.                     |
+| Remote safety result   | The agent evaluates the safety env without installing it locally.        |
 | Non-zero safety `cost` | The safety stack measures a constraint the training env does not expose. |
 
-Results are written to `agent/results.json`. Recording is on by default and
-writes videos under `agent/videos/`.
+Results go to `agent/results.json`. Recording is on by default and writes `agent/videos/`.
 
 ## Why One Python Fails
 
-There are two separate blockers:
+Two blockers matter:
 
-| Wall | What Happens |
-| --- | --- |
-| Install wall | Modern Stable-Baselines3 requires newer Gymnasium than Safety-Gymnasium 1.0.0 allows. |
+| Wall            | What Happens                                                                                 |
+| --------------- | -------------------------------------------------------------------------------------------- |
+| Install wall    | Modern Stable-Baselines3 requires newer Gymnasium than Safety-Gymnasium 1.0.0 allows.        |
 | Checkpoint wall | The older SB3 stack that fits beside Safety-Gymnasium cannot load this NumPy 2.x checkpoint. |
 
 <details>
@@ -112,8 +107,8 @@ $ uv pip compile  (python 3.11)  <<<  "stable-baselines3>=2.7" + "safety-gymnasi
 <details>
 <summary>Show the checkpoint conflict</summary>
 
-The safety-compatible stack resolves to NumPy 1.23.5. The checkpoint was saved
-by the modern stack with NumPy 2.x, so loading it fails with:
+The safety-compatible stack resolves to NumPy 1.23.5. The checkpoint was saved with NumPy 2.x, so
+loading fails with:
 
 ```text
 ModuleNotFoundError: No module named 'numpy._core'
@@ -126,8 +121,7 @@ cd model-env-conflict/proof
 uv run prove.py
 ```
 
-Exit 0 means the checkpoint failed to load in the safety-compatible stack, which
-is expected.
+Exit 0 means the expected failure happened.
 
 </details>
 
@@ -139,8 +133,8 @@ Included checkpoint:
 agent/models/sac-halfcheetah-v5-modern.zip
 ```
 
-It is generated by `agent/train.py` using Stable-Baselines3 SAC on
-`HalfCheetah-v5`. See `agent/models/README.md` for provenance.
+It is generated by `agent/train.py` with Stable-Baselines3 SAC on `HalfCheetah-v5`. See
+`agent/models/README.md`.
 
 Retrain it with:
 
@@ -151,35 +145,27 @@ uv run train.py
 
 ## Safety Cost
 
-Safety-Gymnasium's native `step` returns an extra `cost` value. The safety
-server wraps that into a standard Gymnasium 5-tuple and keeps the cost in
-`info["cost"]`. RLMesh forwards `info`, so the agent reads safety cost from the
-same place it would in a local wrapper.
+Safety-Gymnasium's native `step` returns `cost`. The server stores it in `info["cost"]`; RLMesh
+forwards `info` unchanged.
 
 ## Recording
 
-| Setting | Effect |
-| --- | --- |
-| `RECORD = True` | Default. Save one video per environment. |
-| `RECORD = False` | Faster run with no video output. |
+| Setting          | Effect                                   |
+| ---------------- | ---------------------------------------- |
+| `RECORD = True`  | Default. Save one video per environment. |
+| `RECORD = False` | Faster run with no video output.         |
 
 Change the setting at the top of `agent/eval.py`.
 
-## Local RLMesh Checkout
+## RLMesh Package
 
-This checkout installs RLMesh from:
-
-```text
-../../../rlmesh/python/rlmesh
-```
-
-From this workspace, that resolves to `~/work/rlmesh/python/rlmesh`.
+This demo depends on the published `rlmesh` package.
 
 ## Troubleshooting
 
-| Symptom | Fix |
-| --- | --- |
-| `mise.toml` is not trusted | Run `mise trust` in that folder. |
-| Python 3.11 is selected in `sim-safety` or `proof` | Run the command with `uv run --python 3.10`. |
-| Missing checkpoint | Run `cd model-env-conflict/agent && uv run train.py`. |
-| Need RLMesh traffic logs | Run the safety server with `RUST_LOG=info uv run serve.py`. |
+| Symptom                                            | Fix                                                         |
+| -------------------------------------------------- | ----------------------------------------------------------- |
+| `mise.toml` is not trusted                         | Run `mise trust` in that folder.                            |
+| Python 3.11 is selected in `sim-safety` or `proof` | Run the command with `uv run --python 3.10`.                |
+| Missing checkpoint                                 | Run `cd model-env-conflict/agent && uv run train.py`.       |
+| Need RLMesh traffic logs                           | Run the safety server with `RUST_LOG=info uv run serve.py`. |

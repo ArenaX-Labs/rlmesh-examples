@@ -5,9 +5,3 @@ version = "0.0.0"
 # it is immune to the version conflict between the two env servers.
 requires-python = ">=3.11"
 dependencies = ["rlmesh", "numpy", "imageio[ffmpeg]", "tqdm"]
-
-[dependency-groups]
-dev = ["pytest"]
-
-[tool.uv.sources]
-rlmesh = { path = "../../../rlmesh/python/rlmesh", editable = true }

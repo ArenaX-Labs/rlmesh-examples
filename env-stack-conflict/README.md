@@ -4,11 +4,11 @@ One policy, two incompatible simulator stacks.
 
 ## At A Glance
 
-| Piece | Stack | Address / Role |
-| --- | --- | --- |
-| `sim-safety` | Safety-Gymnasium 1.0.0, Gymnasium 0.28.1, MuJoCo 2.3.3, Python 3.10 | `5555` |
-| `sim-modern` | Gymnasium/MuJoCo modern stack, Python 3.11 | `5556` |
-| `agent` | `rlmesh` + NumPy, Python 3.11 | connects to both |
+| Piece        | Stack                                                               | Address / Role   |
+| ------------ | ------------------------------------------------------------------- | ---------------- |
+| `sim-safety` | Safety-Gymnasium 1.0.0, Gymnasium 0.28.1, MuJoCo 2.3.3, Python 3.10 | `5555`           |
+| `sim-modern` | Gymnasium/MuJoCo modern stack, Python 3.11                          | `5556`           |
+| `agent`      | `rlmesh` + NumPy, Python 3.11                                       | connects to both |
 
 Both environments expose the same HalfCheetah-shaped interface:
 
@@ -17,12 +17,11 @@ observation: Box(17)
 action:      Box(6)
 ```
 
-The policy can drive both environments. The packages cannot coexist in one
-Python environment.
+The policy can drive both. The packages cannot share one Python environment.
 
 ## What RLMesh Changes
 
-RLMesh moves the simulator boundary out of the agent process:
+RLMesh moves each simulator behind a process boundary:
 
 ```text
 sim-safety (:5555)        sim-modern (:5556)
@@ -34,8 +33,8 @@ Safety/MuJoCo 2.x         Gymnasium/MuJoCo 3.x
          one policy, two RemoteEnv objects
 ```
 
-The servers keep their incompatible dependencies isolated. The agent imports
-`rlmesh`, connects to both servers, and steps them like ordinary environments.
+The servers keep their dependencies isolated. The agent connects with `rlmesh` and steps both like
+ordinary environments.
 
 ## Run
 
@@ -62,9 +61,7 @@ cd env-stack-conflict/agent
 uv run eval.py
 ```
 
-> [!TIP]
-> The first run in each folder creates that folder's `.venv`. If `mise` asks to
-> trust a config, run `mise trust` in that folder once.
+First run creates that folder's `.venv`; later runs reuse it. If prompted, run `mise trust` once.
 
 No `mise`? Start the safety server with Python 3.10 explicitly:
 
@@ -75,7 +72,7 @@ uv run --python 3.10 serve.py
 
 ## Expected Output
 
-The agent runs one policy against both environments in lockstep:
+The agent runs one policy against both envs:
 
 ```text
 === one policy, two simulator stacks ===
@@ -85,10 +82,10 @@ modern/mujoco3.3   obs=(17,) steps=500 return=<float> cost=0.0
 
 Read it as:
 
-| Signal | Meaning |
-| --- | --- |
-| Same `obs` shape | One policy can drive both envs. |
-| Different returns | Simulator/version drift can be measured side by side. |
+| Signal             | Meaning                                                                    |
+| ------------------ | -------------------------------------------------------------------------- |
+| Same `obs` shape   | One policy fits both envs.                                                 |
+| Different returns  | Simulator drift is visible.                                                |
 | Safety `cost` only | Safety-Gymnasium reports constraint cost; plain `HalfCheetah-v5` does not. |
 
 The agent also writes `agent/results.json`.
@@ -97,14 +94,13 @@ The agent also writes `agent/results.json`.
 
 Safety-Gymnasium 1.0.0 pins the old stack:
 
-| Package | Required By Safety-Gymnasium |
-| --- | --- |
-| Gymnasium | `0.28.1` |
-| MuJoCo | `2.3.3` |
-| Python | effectively 3.10 because of `pygame==2.1.0` |
+| Package   | Required By Safety-Gymnasium                |
+| --------- | ------------------------------------------- |
+| Gymnasium | `0.28.1`                                    |
+| MuJoCo    | `2.3.3`                                     |
+| Python    | effectively 3.10 because of `pygame==2.1.0` |
 
-The modern simulator uses newer Gymnasium/MuJoCo. There is no single resolver
-answer that satisfies both.
+The modern simulator uses newer Gymnasium/MuJoCo. No single venv satisfies both.
 
 <details>
 <summary>Show example resolver failures</summary>
@@ -131,26 +127,20 @@ WATCH = False
 
 Change those constants in `agent/eval.py`:
 
-| Setting | Effect |
-| --- | --- |
-| `RECORD = True` | Save mp4s under `agent/videos/`. |
-| `WATCH = True` | Open live viewer windows with `RemoteEnv.open_viewer()`. |
+| Setting         | Effect                                                   |
+| --------------- | -------------------------------------------------------- |
+| `RECORD = True` | Save mp4s under `agent/videos/`.                         |
+| `WATCH = True`  | Open live viewer windows with `RemoteEnv.open_viewer()`. |
 
-## Local RLMesh Checkout
+## RLMesh Package
 
-This checkout installs RLMesh from:
-
-```text
-../../../rlmesh/python/rlmesh
-```
-
-From this workspace, that resolves to `~/work/rlmesh/python/rlmesh`.
+This demo depends on the published `rlmesh` package.
 
 ## Troubleshooting
 
-| Symptom | Fix |
-| --- | --- |
-| `mise.toml` is not trusted | Run `mise trust` in that folder. |
-| Python 3.11 is selected in `sim-safety` | Run `uv run --python 3.10 serve.py`. |
-| Editor imports use the wrong venv | Open the component folder as the editor root. |
-| Need RLMesh traffic logs | Run a server with `RUST_LOG=info uv run serve.py`. |
+| Symptom                                 | Fix                                                |
+| --------------------------------------- | -------------------------------------------------- |
+| `mise.toml` is not trusted              | Run `mise trust` in that folder.                   |
+| Python 3.11 is selected in `sim-safety` | Run `uv run --python 3.10 serve.py`.               |
+| Editor imports use the wrong venv       | Open the component folder as the editor root.      |
+| Need RLMesh traffic logs                | Run a server with `RUST_LOG=info uv run serve.py`. |

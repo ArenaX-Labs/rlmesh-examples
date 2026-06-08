@@ -1,0 +1,13 @@
+[project]
+name = "rlmesh-dmcontrol-vla-agent"
+version = "0.0.0"
+requires-python = ">=3.11"
+dependencies = ["torch", "rlmesh", "numpy", "imageio[ffmpeg]", "tqdm"]
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true

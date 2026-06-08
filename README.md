@@ -1,78 +1,67 @@
 # RLMesh Conflict Demos
 
-Real examples where RL models, environments, and simulators cannot live in the
-same Python environment, but can still work together through RLMesh.
+Small demos where RLMesh keeps incompatible or non-standard RL pieces in separate Python processes.
 
 ## TL;DR
 
-- Each demo is split into small `uv` projects with their own virtualenv.
-- The conflicting simulator/model stacks never import each other.
-- The agent talks to remote environments through RLMesh using a Gymnasium-style
-  API.
+- Each component is its own `uv` project.
+- Components depend on the published `rlmesh` package.
+- Agents use a Gymnasium-style remote API.
 
 ## Demos
 
-| Demo | Open | Terminals | Shows |
-| --- | --- | ---: | --- |
-| Env stack conflict | [`env-stack-conflict/`](env-stack-conflict/) | 3 | One policy evaluated against Safety-Gymnasium/MuJoCo 2.x and Gymnasium/MuJoCo 3.x. |
-| Model-env conflict | [`model-env-conflict/`](model-env-conflict/) | 2 | A modern SAC checkpoint evaluated on a Safety-Gymnasium env it cannot be installed beside. |
+| Demo               | Open                                         | Terminals | Shows                                                                               |
+| ------------------ | -------------------------------------------- | --------: | ----------------------------------------------------------------------------------- |
+| Env stack conflict | [`env-stack-conflict/`](env-stack-conflict/) |         3 | One policy against Safety-Gymnasium/MuJoCo 2.x and Gymnasium/MuJoCo 3.x.            |
+| Model-env conflict | [`model-env-conflict/`](model-env-conflict/) |         2 | A modern SAC checkpoint against a Safety-Gymnasium env it cannot share a venv with. |
+| DMControl VLA      | [`dmcontrol-vla/`](dmcontrol-vla/)           |         2 | A `dm_control` env and chunked VLA-style model behind RLMesh adapters.              |
 
 ## Why RLMesh
 
-Without RLMesh, these demos are packaging dead ends. A resolver has to find one
-Python environment that satisfies every Python, NumPy, Gymnasium, MuJoCo,
-Safety-Gymnasium, Torch, and Stable-Baselines3 pin. For these demos, that
-environment does not exist.
+Some demos hit resolver conflicts: no single Python environment can satisfy every Python, NumPy,
+Gymnasium, MuJoCo, Safety-Gymnasium, Torch, and Stable-Baselines3 pin.
+
+Other demos hit API mismatch: a useful environment or model does not speak the interface a platform
+can drive directly.
 
 RLMesh changes the boundary:
 
-| Component | Owns | Python |
-| --- | --- | --- |
-| Safety simulator | Safety-Gymnasium, Gymnasium 0.28.1, MuJoCo 2.3.3 | 3.10 |
-| Modern simulator/model | Gymnasium/MuJoCo 3.x or modern SB3/SAC | 3.11 |
-| Agent | `rlmesh`, policy code, rollout/reporting | 3.11 |
+| Component              | Owns                                              | Python |
+| ---------------------- | ------------------------------------------------- | ------ |
+| Safety simulator       | Safety-Gymnasium, Gymnasium 0.28.1, MuJoCo 2.3.3  | 3.10   |
+| Modern simulator/model | Gymnasium/MuJoCo 3.x or modern SB3/SAC            | 3.11   |
+| Agent                  | `rlmesh`, policy code, rollout/reporting          | 3.11   |
+| Interface wrapper demo | `dm_control`, Torch VLA stand-in, RLMesh wrappers | 3.11   |
 
-The dependency conflict is still real. It just stops blocking evaluation.
+The conflict or mismatch remains real. It just stops blocking evaluation.
 
 ## Setup
 
-Install `uv`:
+Run `uv` from inside each component folder. There is no root `uv` project, so each demo keeps its
+own `.venv` and lockfile.
 
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
+`mise` is optional. It only selects Python versions:
 
-This repo uses `mise.toml` to make the Python split visible:
+| Location                         | Python |
+| -------------------------------- | ------ |
+| Safety-Gymnasium folders, proof  | 3.10   |
+| Agent, modern sim, DMControl sim | 3.11   |
 
-| Location | Python |
-| --- | --- |
-| Repo root | 3.11 |
-| Safety-Gymnasium folders | 3.10 |
-
-If `mise` asks to trust a config, run:
+With `mise`, trust configs once if prompted:
 
 ```bash
 mise trust
 ```
 
-If you do not use `mise`, `uv` can still run the projects from their
-`pyproject.toml` files. For a Python 3.10 safety folder, use:
+Without `mise`, pass Python explicitly in 3.10 folders:
 
 ```bash
 uv run --python 3.10 serve.py
 ```
 
-## Local RLMesh Checkout
+## RLMesh Package
 
-This repo currently installs RLMesh from the sibling local checkout:
-
-```text
-~/work/rlmesh/python/rlmesh
-```
-
-That is intentional for local development. To use the published package instead,
-remove the component `[tool.uv.sources]` entries and depend on the released
-`rlmesh` package.
+The demos install `rlmesh` from the published package.
 
 ## Run
 
@@ -80,9 +69,9 @@ Start with one demo README:
 
 - [`env-stack-conflict/README.md`](env-stack-conflict/)
 - [`model-env-conflict/README.md`](model-env-conflict/)
+- [`dmcontrol-vla/README.md`](dmcontrol-vla/)
 
-The first `uv run` in each component creates that component's `.venv` and
-installs its stack. Later runs reuse it.
+First run creates that component's `.venv`; later runs reuse it.
 
 ## Repo Layout
 
@@ -91,6 +80,10 @@ env-stack-conflict/
   agent/
   sim-modern/
   sim-safety/
+
+dmcontrol-vla/
+  agent/
+  sim-dmcontrol/
 
 model-env-conflict/
   agent/
