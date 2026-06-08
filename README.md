@@ -14,26 +14,24 @@ Small demos where RLMesh keeps incompatible or non-standard RL pieces in separat
 | ------------------ | -------------------------------------------- | --------: | ----------------------------------------------------------------------------------- |
 | Env stack conflict | [`env-stack-conflict/`](env-stack-conflict/) |         3 | One policy against Safety-Gymnasium/MuJoCo 2.x and Gymnasium/MuJoCo 3.x.            |
 | Model-env conflict | [`model-env-conflict/`](model-env-conflict/) |         2 | A modern SAC checkpoint against a Safety-Gymnasium env it cannot share a venv with. |
-| DMControl VLA      | [`dmcontrol-vla/`](dmcontrol-vla/)           |         2 | A `dm_control` env and chunked VLA-style model behind RLMesh adapters.              |
+| Interface mismatch | [`interface-mismatch/`](interface-mismatch/) |         2 | A `dm_control` env and chunked VLA-style model behind RLMesh adapters.              |
 
 ## Why RLMesh
 
-Some demos hit resolver conflicts: no single Python environment can satisfy every Python, NumPy,
-Gymnasium, MuJoCo, Safety-Gymnasium, Torch, and Stable-Baselines3 pin.
+RLMesh lets RL components that can't share a process run side by side and talk over a common remote
+API. Two recurring problems it solves:
 
-Other demos hit API mismatch: a useful environment or model does not speak the interface a platform
-can drive directly.
+- **Dependency conflicts:** no single Python environment can satisfy every pin, so two components
+  can't be installed together.
+- **API mismatch:** a useful environment or model doesn't speak the interface a platform can drive
+  directly.
 
-RLMesh changes the boundary:
+RLMesh changes the boundary: each component keeps its own environment and process, and RLMesh
+bridges them.
 
-| Component              | Owns                                              | Python |
-| ---------------------- | ------------------------------------------------- | ------ |
-| Safety simulator       | Safety-Gymnasium, Gymnasium 0.28.1, MuJoCo 2.3.3  | 3.10   |
-| Modern simulator/model | Gymnasium/MuJoCo 3.x or modern SB3/SAC            | 3.11   |
-| Agent                  | `rlmesh`, policy code, rollout/reporting          | 3.11   |
-| Interface wrapper demo | `dm_control`, Torch VLA stand-in, RLMesh wrappers | 3.11   |
-
-The conflict or mismatch remains real. It just stops blocking evaluation.
+The demos in this repo are concrete instances of these problems (incompatible simulator stacks, a
+modern checkpoint that can't coexist with an older env, a non-standard environment interface), but
+the pattern applies to any RL components with incompatible or non-standard pieces.
 
 ## Setup
 
@@ -69,7 +67,7 @@ Start with one demo README:
 
 - [`env-stack-conflict/README.md`](env-stack-conflict/)
 - [`model-env-conflict/README.md`](model-env-conflict/)
-- [`dmcontrol-vla/README.md`](dmcontrol-vla/)
+- [`interface-mismatch/README.md`](interface-mismatch/)
 
 First run creates that component's `.venv`; later runs reuse it.
 
@@ -81,7 +79,7 @@ env-stack-conflict/
   sim-modern/
   sim-safety/
 
-dmcontrol-vla/
+interface-mismatch/
   agent/
   sim-dmcontrol/
 

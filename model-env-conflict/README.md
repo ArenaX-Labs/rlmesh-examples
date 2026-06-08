@@ -2,6 +2,24 @@
 
 A pretrained SAC agent evaluates a safety env it cannot share a venv with.
 
+## Motivation
+
+At a glance this looks like [`env-stack-conflict`](../env-stack-conflict/): one model, two
+environments. The difference is **what conflicts**. There the two *environments* couldn't share a
+venv. Here the conflict is between the **model and an environment**.
+
+We trained a Stable-Baselines3 SAC model on a modern `HalfCheetah-v5`, which is why that environment
+runs locally in the agent process, since the model already lives in that stack. The environment we
+actually care about evaluating is the conflicting one: `SafetyHalfCheetahVelocity-v1`, which requires
+an older Python and NumPy that the trained model cannot run under. Porting a Stable-Baselines3
+checkpoint back to that older stack is a real headache, so without RLMesh you simply can't evaluate
+this model on this environment. RLMesh removes that wall: the model stays where it works and drives
+the safety env remotely.
+
+So strictly speaking, the local `HalfCheetah-v5` run isn't required. We only *need* the remote
+safety env to make the point. We evaluate on both just to show the model still runs against its
+training environment too.
+
 ## At A Glance
 
 | Piece        | Stack                                                                    | Address / Role     |

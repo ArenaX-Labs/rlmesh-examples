@@ -441,7 +441,7 @@ wheels = [
 ]
 
 [[package]]
-name = "rlmesh-dmcontrol-vla-agent"
+name = "rlmesh-interface-mismatch-agent"
 version = "0.0.0"
 source = { virtual = "." }
 dependencies = [

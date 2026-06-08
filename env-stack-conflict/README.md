@@ -2,6 +2,22 @@
 
 One policy, two incompatible simulator stacks.
 
+## Motivation
+
+You want to run a single model against any number of environments without thinking twice about
+dependency conflicts, or any other reason two environments refuse to coexist.
+
+Without RLMesh, adding an environment whose stack clashes with what you already have means a
+resolver fight: reconcile Python, NumPy, Gymnasium, and MuJoCo pins across everything at once, or
+give up and not evaluate on it. With RLMesh the workflow is friction-free: each environment keeps
+its own venv, you spin up its env server, and your model connects to it. Adding the next environment
+is just another server to start, and your model never changes.
+
+This demo shows the baseline case where the conflict is purely **environment vs. environment**: two
+simulator stacks that cannot share a venv, both driven by one unchanged policy. (The
+[`model-env-conflict`](../model-env-conflict/) demo covers the related but distinct case where the
+*model itself* conflicts with an environment.)
+
 ## At A Glance
 
 | Piece        | Stack                                                               | Address / Role   |

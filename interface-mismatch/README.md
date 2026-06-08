@@ -1,6 +1,27 @@
-# DMControl VLA
+# Interface Mismatch
 
-A `dm_control` env and chunk-emitting VLA-style model run through RLMesh.
+A `dm_control` env and chunk-emitting VLA-style model run through RLMesh, neither of which speaks the
+standard env/model interface directly.
+
+## Motivation
+
+The other demos are about dependency conflicts: components that can't share a venv. This one is
+about a different wall: a useful environment or model that doesn't speak the interface RLMesh
+expects, even when there's no dependency clash at all.
+
+You don't have to rewrite the component to fit. You write a small adapter that translates its native
+shape into RLMesh's env/model contract. Here the `dm_control` env returns `dm_env.TimeStep` objects
+and specs instead of Gymnasium-style tuples and spaces, and the VLA-style model emits a chunk of
+future actions rather than one action per observation. A thin wrapper on each side bridges the gap,
+and everything downstream sees an ordinary RLMesh env and model. The sections below walk through
+those adapters.
+
+You might ask why the model needs an adapter at all. In the other demos the agent owns the loop, so
+you could just call the model however you like and never make it conform to anything. That's true
+when you control the loop. But the way RLMesh scales up is the managed solution. In the managed solution, you
+hand us the set of models and environmentss you want to run, and we run the loops for you. For that to work,
+the model has to speak the RLMesh standard so we can drive it without knowing its internals. So the
+model-side adapter here is preparation for that managed case.
 
 ## At A Glance
 
@@ -39,14 +60,14 @@ Open two terminals from the repo root.
 ### Terminal 1
 
 ```bash
-cd dmcontrol-vla/sim-dmcontrol
+cd interface-mismatch/sim-dmcontrol
 uv run serve.py
 ```
 
 ### Terminal 2
 
 ```bash
-cd dmcontrol-vla/agent
+cd interface-mismatch/agent
 uv run run.py
 ```
 
