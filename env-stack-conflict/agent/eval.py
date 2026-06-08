@@ -1,6 +1,7 @@
+from rlmesh.numpy import RemoteEnv
+
 from helpers import close_all, evaluate, report
 from policy import make_policy
-from rlmesh.numpy import RemoteEnv
 
 SEED = 0
 POLICY_SEED = 56
