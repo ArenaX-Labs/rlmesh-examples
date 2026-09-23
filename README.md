@@ -58,9 +58,9 @@ include evaluation loops and recording code in addition to the serving code.
 ## Run on RLMesh Managed
 
 The environment images use the standard `rlmesh.serve` command, which lets Managed discover their
-parameters and variants from the handshake. Keep that command and the `RLMESH_ADDRESS` environment
-variable when adapting an example. Isaac Sim also declares GPU and memory requirements in its image
-label.
+parameters and variants from the handshake. Keep that command and `EXPOSE 50051` when adapting an
+example; Managed sets `RLMESH_ADDRESS` itself when it runs the image. Both Isaac Sim images declare
+GPU and memory requirements in their image labels.
 
 Build for `linux/amd64` when targeting Managed, use the SDK version required by your deployment, and
 test the image locally before uploading it. The

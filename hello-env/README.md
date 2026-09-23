@@ -71,7 +71,7 @@ docker run --rm -p 127.0.0.1:50051:50051 \
 To inspect the factory's description without starting a server:
 
 ```bash
-docker run --rm rlmesh-examples/hello-env python -m rlmesh._describe --env hello_env:HelloEnv
+docker run --rm rlmesh-examples/hello-env rlmesh describe hello_env:HelloEnv
 ```
 
 ## Make it yours

@@ -57,7 +57,7 @@ with Ctrl-C when finished.
 
 `task_suite` (default `libero_10`) and `task_id` (default `0`) select the task. `max_episode_steps`
 defaults to upstream's budget for the suite (`libero_10`: 520). The full param list is in
-`libero_env.py`, or run `python -m rlmesh._describe --env libero_env:Libero` in the image.
+`libero_env.py`, or run `docker run --rm rlmesh-examples/libero rlmesh describe libero_env:Libero`.
 
 To select a task, stop the current container and pass its suite and index:
 

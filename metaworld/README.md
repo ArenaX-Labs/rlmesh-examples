@@ -58,7 +58,7 @@ Stop the server with Ctrl-C when finished.
 The params are listed in `metaworld_env.py`, or ask the image:
 
 ```bash
-docker run --rm rlmesh-examples/metaworld python -m rlmesh._describe --env metaworld_env:MetaWorld
+docker run --rm rlmesh-examples/metaworld rlmesh describe metaworld_env:MetaWorld
 ```
 
 Stop the current container, then pass the task to the factory:
