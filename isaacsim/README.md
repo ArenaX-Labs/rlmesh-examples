@@ -5,6 +5,12 @@ example: a batched simulator, a vendor base image, and a simulator that only wor
 
 Read [`hello-env`](../hello-env/) first for the factory → Dockerfile → run loop.
 
+The client uses `Model(predict, spec=rlmesh.NO_ADAPTER)`: its policy reads the environment's keys
+and returns the environment's three-value delta action directly. `FrankaReach.tags` describes those
+fields for other models, but this client requests no conversion. For a resolved `ModelSpec` that
+changes camera, pose, and gripper formats, see the
+[`UR10e pick-and-place example`](../isaacsim-pick-place/).
+
 ## Files
 
 | File              | What it is                                                                          |

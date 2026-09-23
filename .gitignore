@@ -2,6 +2,7 @@
 __pycache__/
 *.py[cod]
 .pytest_cache/
+recordings/
 
 agent/results.json
 agent/videos/

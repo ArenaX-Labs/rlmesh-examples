@@ -6,12 +6,18 @@ against either the local process or the container.
 
 ## Build an environment
 
-| Example                    | What it adds                                                                     | Hardware |
-| -------------------------- | -------------------------------------------------------------------------------- | -------- |
-| [`hello-env/`](hello-env/) | A small Gymnasium env, an `EnvFactory`, and the complete build/run loop          | CPU      |
-| [`metaworld/`](metaworld/) | An upstream Gymnasium simulator with camera, state, and instruction observations | CPU      |
-| [`libero/`](libero/)       | A non-Gymnasium simulator with fixed initial states and bundled assets           | CPU      |
-| [`isaacsim/`](isaacsim/)   | A GPU simulator with a vendor base image and batched environments                | RTX GPU  |
+| Example                                        | What it adds                                                                     | Hardware |
+| ---------------------------------------------- | -------------------------------------------------------------------------------- | -------- |
+| [`hello-env/`](hello-env/)                     | A small Gymnasium env, an `EnvFactory`, and the complete build/run loop          | CPU      |
+| [`metaworld/`](metaworld/)                     | An upstream Gymnasium simulator with camera, state, and instruction observations | CPU      |
+| [`libero/`](libero/)                           | A non-Gymnasium simulator with fixed initial states and bundled assets           | CPU      |
+| [`isaacsim/`](isaacsim/)                       | Batched Franka reach with a direct, unadapted policy                             | RTX GPU  |
+| [`isaacsim-pick-place/`](isaacsim-pick-place/) | UR10e grasping with a resolved camera, pose, and gripper adapter                 | RTX GPU  |
+
+The two Isaac Sim examples show different model interfaces. Franka reach passes the environment's
+observations and actions through unchanged. The
+[UR10e pick-and-place walkthrough](isaacsim-pick-place/) shows how environment tags and a model spec
+resolve camera, pose, and gripper conversions.
 
 Each example serves an `EnvFactory` through `python -m rlmesh.serve`. The factory's `make()` method
 creates the environment; the Dockerfile installs its dependencies and starts the server. The client
