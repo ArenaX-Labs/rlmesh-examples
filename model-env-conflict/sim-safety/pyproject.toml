@@ -2,4 +2,7 @@
 name = "rlmesh-model-env-conflict-sim-safety"
 version = "0.0.0"
 requires-python = "==3.10.*"
-dependencies = ["safety-gymnasium==1.0.0", "rlmesh", "numpy"]
+dependencies = ["safety-gymnasium==1.0.0", "rlmesh==0.1.0rc15", "numpy"]
+
+[tool.rlmesh]
+workflow_edition = "2026.06"

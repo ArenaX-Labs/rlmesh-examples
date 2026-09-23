@@ -16,6 +16,8 @@ envs = {
     "safety-halfcheetah-velocity": RemoteEnv("tcp://127.0.0.1:5557"),
 }
 
-results = evaluate(policy, envs, seed=SEED, max_steps=MAX_STEPS, record=RECORD)
-report(results, source=source)
-close_all(envs)
+try:
+    results = evaluate(policy, envs, seed=SEED, max_steps=MAX_STEPS, record=RECORD)
+    report(results, source=source)
+finally:
+    close_all(envs)

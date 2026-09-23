@@ -1,0 +1,8 @@
+[project]
+name = "hello-env"
+version = "0.1.0"
+requires-python = "~=3.11.0"
+dependencies = ["rlmesh==0.1.0rc15", "gymnasium", "numpy"]
+
+[tool.uv]
+package = false

@@ -17,28 +17,29 @@ def evaluate(policy, envs, *, seed=0, max_steps=1000, record=False):
         }
 
     recorder = Recorder(envs) if record else None
-    if recorder:
-        for name, env in envs.items():
-            recorder.add(name, env)
-
-    for _ in tqdm(range(max_steps), desc="stepping envs", unit="step"):
-        if all(s["done"] for s in state.values()):
-            break
-        for name, env in envs.items():
-            s = state[name]
-            if s["done"]:
-                continue
-            obs, reward, terminated, truncated, info = env.step(policy(s["obs"]))
-            s["obs"] = np.asarray(obs)
-            s["ret"] += float(reward)
-            s["cost"] += float(info.get("cost", 0.0))
-            s["steps"] += 1
-            s["done"] = terminated or truncated
-            if recorder:
+    try:
+        if recorder:
+            for name, env in envs.items():
                 recorder.add(name, env)
 
-    if recorder:
-        recorder.close()
+        for _ in tqdm(range(max_steps), desc="stepping envs", unit="step"):
+            if all(s["done"] for s in state.values()):
+                break
+            for name, env in envs.items():
+                s = state[name]
+                if s["done"]:
+                    continue
+                obs, reward, terminated, truncated, info = env.step(policy(s["obs"]))
+                s["obs"] = np.asarray(obs)
+                s["ret"] += float(reward)
+                s["cost"] += float(info.get("cost", 0.0))
+                s["steps"] += 1
+                s["done"] = terminated or truncated
+                if recorder:
+                    recorder.add(name, env)
+    finally:
+        if recorder:
+            recorder.close()
 
     return {
         name: {
@@ -54,5 +55,5 @@ def close_all(envs):
     for env in envs.values():
         try:
             env.close()
-        except Exception:
-            pass
+        except Exception as exc:
+            print(f"Could not close environment: {exc}")

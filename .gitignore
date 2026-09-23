@@ -11,3 +11,4 @@ agent/videos/
 target/
 MUJOCO_LOG.TXT
 .zed/*
+

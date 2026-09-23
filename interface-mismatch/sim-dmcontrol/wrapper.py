@@ -36,6 +36,8 @@ class RLMeshDmControlWrapper:
         self.metadata = {"render_fps": round(1.0 / env.control_timestep())}
 
     def reset(self, *, seed=None, options=None):
+        if seed is not None:
+            self._env.task.random.seed(seed)
         return self._observation(self._env.reset()), {}
 
     def step(self, action):
@@ -50,6 +52,7 @@ class RLMeshDmControlWrapper:
 
     def close(self):
         self._env.close()
+        self._env.physics.free()
 
     def _observation(self, time_step):
         state = np.concatenate(

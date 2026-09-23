@@ -28,7 +28,9 @@ def main():
         return 3
     try:
         SAC.load(MODERN_CHECKPOINT, device="cpu")
-    except Exception as exc:
+    except ModuleNotFoundError as exc:
+        if exc.name != "numpy._core":
+            raise
         print(f"could not load modern checkpoint: {type(exc).__name__}: {exc}")
         return 0
     print("modern checkpoint loaded under the old stack — Wall 2 no longer holds")

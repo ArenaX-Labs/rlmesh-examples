@@ -21,12 +21,11 @@ def predict(observation):
     return vla.predict(observation)
 
 
-Model(predict, on_reset=vla.reset).run_local_for_episodes(
-    ENV_ADDRESS, max_episodes=1
-)
-
-progress.close()
-if recorder is not None:
-    recorder.close()
-model.close()
+try:
+    Model(predict, on_episode_end=lambda *_: vla.reset()).run(ENV_ADDRESS, episodes=1)
+finally:
+    progress.close()
+    if recorder is not None:
+        recorder.close()
+    model.close()
 print("[agent] done", flush=True)

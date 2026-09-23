@@ -7,9 +7,6 @@ oxfmt = "0.53.0"
 [settings]
 python.uv_venv_auto = "create|source"
 
-# ──────────────────────────────────────────────
-# Format (mutating)
-# ──────────────────────────────────────────────
 [tasks."fmt"]
 description = "Format all source files"
 depends = ["fmt:oxfmt"]

@@ -2,23 +2,12 @@
 
 A pretrained SAC agent evaluates a safety env it cannot share a venv with.
 
-## Motivation
+The included Stable-Baselines3 SAC checkpoint uses a newer Gymnasium and NumPy stack than
+Safety-Gymnasium supports. The agent loads it in its own environment and evaluates the safety task
+through `RemoteEnv`. A local `HalfCheetah-v5` run provides a baseline on the training stack.
 
-At a glance this looks like [`env-stack-conflict`](../env-stack-conflict/): one model, two
-environments. The difference is **what conflicts**. There the two *environments* couldn't share a
-venv. Here the conflict is between the **model and an environment**.
-
-We trained a Stable-Baselines3 SAC model on a modern `HalfCheetah-v5`, which is why that environment
-runs locally in the agent process, since the model already lives in that stack. The environment we
-actually care about evaluating is the conflicting one: `SafetyHalfCheetahVelocity-v1`, which requires
-an older Python and NumPy that the trained model cannot run under. Porting a Stable-Baselines3
-checkpoint back to that older stack is a real headache, so without RLMesh you simply can't evaluate
-this model on this environment. RLMesh removes that wall: the model stays where it works and drives
-the safety env remotely.
-
-So strictly speaking, the local `HalfCheetah-v5` run isn't required. We only *need* the remote
-safety env to make the point. We evaluate on both just to show the model still runs against its
-training environment too.
+The [`env-stack-conflict`](../env-stack-conflict/) demo shows the related case where two simulator
+stacks conflict with each other.
 
 ## At A Glance
 
@@ -50,12 +39,11 @@ MuJoCo 2.3.3                    model.predict()
 
 The agent loads the checkpoint where it works, then drives the safety env over RLMesh.
 
-This is the model-vs-env sibling of [`env-stack-conflict`](../env-stack-conflict/): same idea, but
-the model stack is real.
-
 ## Run
 
-Open two terminals from the repo root.
+Open two terminals from the repo root. For recording on a headless host, set
+`MUJOCO_GL=osmesa PYOPENGL_PLATFORM=osmesa` in both terminals and install OSMesa (`libosmesa6` on
+Debian/Ubuntu, `mesa-libOSMesa` on Fedora).
 
 ### Terminal 1
 
@@ -71,7 +59,8 @@ cd model-env-conflict/agent
 uv run eval.py
 ```
 
-The SAC checkpoint is included. First run creates each `.venv`; later runs reuse it.
+The SAC checkpoint is included. First run creates each `.venv`; later runs reuse it. Stop the server
+with Ctrl-C when finished.
 
 No `mise`? Start the safety server with Python 3.10 explicitly:
 
@@ -139,7 +128,8 @@ cd model-env-conflict/proof
 uv run prove.py
 ```
 
-Exit 0 means the expected failure happened.
+Exit 0 means loading failed because `numpy._core` is missing. Other errors are not treated as
+evidence of the checkpoint conflict.
 
 </details>
 
@@ -174,10 +164,6 @@ forwards `info` unchanged.
 | `RECORD = False` | Faster run with no video output.         |
 
 Change the setting at the top of `agent/eval.py`.
-
-## RLMesh Package
-
-This demo depends on the published `rlmesh` package.
 
 ## Troubleshooting
 

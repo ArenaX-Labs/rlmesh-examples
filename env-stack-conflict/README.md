@@ -1,30 +1,21 @@
 # Env Stack Conflict
 
-One policy, two incompatible simulator stacks.
+One policy, two incompatible simulator stacks, one container each.
 
-## Motivation
+Safety-Gymnasium pins Gymnasium and MuJoCo versions that conflict with the modern simulator. Each
+environment runs in its own container, and one NumPy policy connects to both through `RemoteEnv`.
+Both expose a 17-value observation and a 6-value action.
 
-You want to run a single model against any number of environments without thinking twice about
-dependency conflicts, or any other reason two environments refuse to coexist.
-
-Without RLMesh, adding an environment whose stack clashes with what you already have means a
-resolver fight: reconcile Python, NumPy, Gymnasium, and MuJoCo pins across everything at once, or
-give up and not evaluate on it. With RLMesh the workflow is friction-free: each environment keeps
-its own venv, you spin up its env server, and your model connects to it. Adding the next environment
-is just another server to start, and your model never changes.
-
-This demo shows the baseline case where the conflict is purely **environment vs. environment**: two
-simulator stacks that cannot share a venv, both driven by one unchanged policy. (The
-[`model-env-conflict`](../model-env-conflict/) demo covers the related but distinct case where the
-*model itself* conflicts with an environment.)
+For a conflict between a trained model and an environment, see
+[`model-env-conflict`](../model-env-conflict/).
 
 ## At A Glance
 
-| Piece        | Stack                                                               | Address / Role   |
-| ------------ | ------------------------------------------------------------------- | ---------------- |
-| `sim-safety` | Safety-Gymnasium 1.0.0, Gymnasium 0.28.1, MuJoCo 2.3.3, Python 3.10 | `5555`           |
-| `sim-modern` | Gymnasium/MuJoCo modern stack, Python 3.11                          | `5556`           |
-| `agent`      | `rlmesh` + NumPy, Python 3.11                                       | connects to both |
+| Piece        | Stack                                                               | Serves                  | Host port        |
+| ------------ | ------------------------------------------------------------------- | ----------------------- | ---------------- |
+| `sim-safety` | Safety-Gymnasium 1.0.0, Gymnasium 0.28.1, MuJoCo 2.3.3, Python 3.10 | `env:HalfCheetahSafety` | `50051`          |
+| `sim-modern` | Gymnasium 1.x, MuJoCo 3.3, Python 3.11                              | `env:HalfCheetahModern` | `50052`          |
+| `agent`      | `rlmesh` + NumPy, Python 3.11                                       | -                       | connects to both |
 
 Both environments expose the same HalfCheetah-shaped interface:
 
@@ -37,53 +28,66 @@ The policy can drive both. The packages cannot share one Python environment.
 
 ## What RLMesh Changes
 
-RLMesh moves each simulator behind a process boundary:
+Each simulator is an `EnvFactory` in its own `env.py`, packaged in its own image:
 
 ```text
-sim-safety (:5555)        sim-modern (:5556)
-Python 3.10               Python 3.11
-Safety/MuJoCo 2.x         Gymnasium/MuJoCo 3.x
-       \                  /
-        \                /
-         agent/eval.py
-         one policy, two RemoteEnv objects
+sim-safety image (:50051)   sim-modern image (:50052)
+Python 3.10                 Python 3.11
+Safety/MuJoCo 2.x           Gymnasium/MuJoCo 3.x
+          \                  /
+           \                /
+            agent/eval.py
+            one policy, two RemoteEnv objects
 ```
 
-The servers keep their dependencies isolated. The agent connects with `rlmesh` and steps both like
-ordinary environments.
+The whole env side is a few lines per stack:
+
+```python
+class HalfCheetahModern(rlmesh.EnvFactory):
+    workflow_edition = "2026.06"
+
+    def make(self) -> gym.Env:
+        return gym.make("HalfCheetah-v5", render_mode="rgb_array")
+```
 
 ## Run
 
-Open three terminals from the repo root.
-
-### Terminal 1
+From the repo root, build both images:
 
 ```bash
-cd env-stack-conflict/sim-safety
-uv run serve.py
+docker build -t rlmesh-examples/env-stack-conflict/sim-safety env-stack-conflict/sim-safety
+docker build -t rlmesh-examples/env-stack-conflict/sim-modern env-stack-conflict/sim-modern
 ```
 
-### Terminal 2
+Start them:
 
 ```bash
-cd env-stack-conflict/sim-modern
-uv run serve.py
+docker run --rm -d --name sim-safety -p 127.0.0.1:50051:50051 rlmesh-examples/env-stack-conflict/sim-safety
+docker run --rm -d --name sim-modern -p 127.0.0.1:50052:50051 rlmesh-examples/env-stack-conflict/sim-modern
 ```
 
-### Terminal 3
+Run the agent:
 
 ```bash
 cd env-stack-conflict/agent
 uv run eval.py
 ```
 
-First run creates that folder's `.venv`; later runs reuse it. If prompted, run `mise trust` once.
+Stop the containers with `docker stop sim-safety sim-modern`.
 
-No `mise`? Start the safety server with Python 3.10 explicitly:
+### Without Docker
+
+Each sim folder is also a plain `uv` project. Install OSMesa if recording or viewing frames
+(`libosmesa6` on Debian/Ubuntu, `mesa-libOSMesa` on Fedora). In two terminals:
 
 ```bash
 cd env-stack-conflict/sim-safety
-uv run --python 3.10 serve.py
+MUJOCO_GL=osmesa PYOPENGL_PLATFORM=osmesa RLMESH_ADDRESS=127.0.0.1:50051 uv run python -m rlmesh.serve --env env:HalfCheetahSafety
+```
+
+```bash
+cd env-stack-conflict/sim-modern
+MUJOCO_GL=osmesa PYOPENGL_PLATFORM=osmesa RLMESH_ADDRESS=127.0.0.1:50052 uv run python -m rlmesh.serve --env env:HalfCheetahModern
 ```
 
 ## Expected Output
@@ -98,11 +102,11 @@ modern/mujoco3.3   obs=(17,) steps=500 return=<float> cost=0.0
 
 Read it as:
 
-| Signal             | Meaning                                                                    |
-| ------------------ | -------------------------------------------------------------------------- |
-| Same `obs` shape   | One policy fits both envs.                                                 |
-| Different returns  | Simulator drift is visible.                                                |
-| Safety `cost` only | Safety-Gymnasium reports constraint cost; plain `HalfCheetah-v5` does not. |
+| Signal             | Meaning                                                                                               |
+| ------------------ | ----------------------------------------------------------------------------------------------------- |
+| Same `obs` shape   | One policy fits both envs.                                                                            |
+| Different returns  | Returns differ across tasks and simulator stacks; this is not an isolated measure of simulator drift. |
+| Safety `cost` only | Safety-Gymnasium reports constraint cost; plain `HalfCheetah-v5` does not.                            |
 
 The agent also writes `agent/results.json`.
 
@@ -148,15 +152,12 @@ Change those constants in `agent/eval.py`:
 | `RECORD = True` | Save mp4s under `agent/videos/`.                         |
 | `WATCH = True`  | Open live viewer windows with `RemoteEnv.open_viewer()`. |
 
-## RLMesh Package
-
-This demo depends on the published `rlmesh` package.
+Frames are rendered inside the containers (headless OSMesa) and streamed to the agent.
 
 ## Troubleshooting
 
-| Symptom                                 | Fix                                                |
-| --------------------------------------- | -------------------------------------------------- |
-| `mise.toml` is not trusted              | Run `mise trust` in that folder.                   |
-| Python 3.11 is selected in `sim-safety` | Run `uv run --python 3.10 serve.py`.               |
-| Editor imports use the wrong venv       | Open the component folder as the editor root.      |
-| Need RLMesh traffic logs                | Run a server with `RUST_LOG=info uv run serve.py`. |
+| Symptom                                 | Fix                                                         |
+| --------------------------------------- | ----------------------------------------------------------- |
+| Agent can't connect                     | Check `docker ps` shows both containers on 50051 and 50052. |
+| Python 3.11 is selected in `sim-safety` | Run `uv run --python 3.10 ...`, or `mise trust` once.       |
+| Need RLMesh traffic logs                | Add `-e RUST_LOG=info` to `docker run`.                     |

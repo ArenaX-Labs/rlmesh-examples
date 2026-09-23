@@ -1,27 +1,13 @@
 # Interface Mismatch
 
-A `dm_control` env and chunk-emitting VLA-style model run through RLMesh, neither of which speaks the
-standard env/model interface directly.
+A `dm_control` env and chunk-emitting VLA-style model run through RLMesh, neither of which speaks
+the standard env/model interface directly.
 
-## Motivation
+`dm_control` returns `dm_env.TimeStep` objects and specs. The environment wrapper translates these
+to Gymnasium-style reset/step results and spaces. The included untrained Torch model returns chunks
+of eight actions; its wrapper buffers the chunk and returns one action per `predict()` call.
 
-The other demos are about dependency conflicts: components that can't share a venv. This one is
-about a different wall: a useful environment or model that doesn't speak the interface RLMesh
-expects, even when there's no dependency clash at all.
-
-You don't have to rewrite the component to fit. You write a small adapter that translates its native
-shape into RLMesh's env/model contract. Here the `dm_control` env returns `dm_env.TimeStep` objects
-and specs instead of Gymnasium-style tuples and spaces, and the VLA-style model emits a chunk of
-future actions rather than one action per observation. A thin wrapper on each side bridges the gap,
-and everything downstream sees an ordinary RLMesh env and model. The sections below walk through
-those adapters.
-
-You might ask why the model needs an adapter at all. In the other demos the agent owns the loop, so
-you could just call the model however you like and never make it conform to anything. That's true
-when you control the loop. But the way RLMesh scales up is the managed solution. In the managed solution, you
-hand us the set of models and environmentss you want to run, and we run the loops for you. For that to work,
-the model has to speak the RLMesh standard so we can drive it without knowing its internals. So the
-model-side adapter here is preparation for that managed case.
+The model is a small stand-in for testing the adapter, not a trained robot policy.
 
 ## At A Glance
 
@@ -40,7 +26,7 @@ This demo is about API shape, not resolver conflicts:
 
 ## What RLMesh Changes
 
-RLMesh gives the env and model a platform-shaped boundary:
+The wrappers connect the components through RLMesh:
 
 ```text
 sim-dmcontrol (:5558)             agent/run.py
@@ -71,8 +57,9 @@ cd interface-mismatch/agent
 uv run run.py
 ```
 
-First run creates each `.venv`. If MuJoCo cannot find GL, start the server with
-`MUJOCO_GL=egl uv run serve.py`.
+First run creates each `.venv`. On a headless host, use `MUJOCO_GL=egl uv run serve.py` with an EGL
+driver, or `MUJOCO_GL=osmesa PYOPENGL_PLATFORM=osmesa uv run serve.py` with OSMesa installed. Stop
+the server with Ctrl-C when finished.
 
 ## Expected Output
 
@@ -104,19 +91,12 @@ RLMesh expects a small env/model contract. These components start elsewhere:
 
 `RLMeshDmControlWrapper` adapts the env. `RLMeshVLAWrapper` adapts chunked actions.
 
-## Swapping In SmolVLA
+## Using a trained model
 
-The included model is a tiny CPU stand-in with SmolVLA-shaped inputs and outputs. Real weights use
-the same wrapper boundary, for example:
-
-```python
-from lerobot.policies.smolvla import SmolVLAPolicy
-
-self._net = SmolVLAPolicy.from_pretrained("lerobot/smolvla_base")
-```
-
-The base SmolVLA model was trained for a different robot, so expect well-formed actions, not a
-skillful policy, without fine-tuning.
+Replace `VLAModel.predict_chunk()` with your model's inference call. Keep the returned shape
+`(chunk_length, 5)` and match the environment's action bounds. A different model may also need image
+preprocessing, state conversion, and robot-specific action mapping; replacing the weights alone is
+not sufficient.
 
 ## Recording
 
@@ -132,10 +112,6 @@ Change the setting at the top of `agent/run.py`.
 | ---------------- | ------------------------------------------------------------------ |
 | `RECORD = True`  | Save the model's image observations to `agent/videos/rollout.mp4`. |
 | `RECORD = False` | Faster run with no video output.                                   |
-
-## RLMesh Package
-
-This demo depends on the published `rlmesh` package.
 
 ## Troubleshooting
 
