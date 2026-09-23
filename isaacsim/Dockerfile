@@ -2,7 +2,7 @@
 FROM nvcr.io/nvidia/isaac-sim:6.1.0
 
 # Isaac Sim ships its own Python (3.12), so install into it with pip rather than a uv venv.
-ARG RLMESH_VERSION=0.1.0rc15
+ARG RLMESH_VERSION=0.1.0
 RUN /isaac-sim/python.sh -m pip install --no-cache-dir "rlmesh[numpy]==${RLMESH_VERSION}" gymnasium
 
 ENV ACCEPT_EULA=Y PRIVACY_CONSENT=Y PYTHONUNBUFFERED=1 PYTHONPATH=/app \

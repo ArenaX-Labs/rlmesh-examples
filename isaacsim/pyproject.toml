@@ -3,7 +3,7 @@ name = "isaacsim-env"
 version = "0.1.0"
 requires-python = ">=3.11"
 # Only for run.py on the host; the env itself runs inside the Isaac Sim image.
-dependencies = ["rlmesh==0.1.0rc15", "numpy"]
+dependencies = ["rlmesh==0.1.0", "numpy"]
 
 [tool.uv]
 package = false

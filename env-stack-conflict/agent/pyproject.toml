@@ -4,4 +4,4 @@ version = "0.0.0"
 # The agent imports only rlmesh + numpy. It never imports gymnasium/mujoco, so
 # it is immune to the version conflict between the two env servers.
 requires-python = ">=3.11"
-dependencies = ["rlmesh==0.1.0rc15", "numpy", "imageio[ffmpeg]", "tqdm"]
+dependencies = ["rlmesh==0.1.0", "numpy", "imageio[ffmpeg]", "tqdm"]

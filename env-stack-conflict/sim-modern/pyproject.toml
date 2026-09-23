@@ -3,4 +3,4 @@ name = "rlmesh-env-stack-conflict-sim-modern"
 version = "0.0.0"
 # Modern stack: gymnasium 1.x + mujoco 3.x. Builds on 3.11.
 requires-python = ">=3.11"
-dependencies = ["gymnasium[mujoco]>=1.2", "mujoco==3.3.5", "rlmesh==0.1.0rc15", "numpy"]
+dependencies = ["gymnasium[mujoco]>=1.2", "mujoco==3.3.5", "rlmesh==0.1.0", "numpy"]

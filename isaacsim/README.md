@@ -22,8 +22,7 @@ changes camera, pose, and gripper formats, see the
 ## What's new compared to the CPU examples
 
 `prepare()` starts Kit once per process, and `make(lanes=N)` builds N Frankas in one stage. Isaac
-Sim needs its calls on the main thread. `rlmesh.serve` keeps setup and environment calls there; this
-requires RLMesh rc14 or later.
+Sim needs its calls on the main thread. `rlmesh.serve` keeps setup and environment calls there.
 
 At `lanes=1`, RLMesh serves the batched environment as a scalar environment. With multiple lanes, it
 steps them together in lockstep. Finished lanes reset on their next step (Gymnasium `NEXT_STEP`),

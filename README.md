@@ -32,9 +32,9 @@ Each component has its own `pyproject.toml`, `uv.lock`, and `.venv`. Run `uv` fr
 directory. There is no root Python project, and the conflict demos deliberately use packages that
 cannot share a virtual environment.
 
-The examples currently pin `rlmesh==0.1.0rc15`. Use the same SDK version in the client and
-container. When updating it, update the project pins and lockfiles together, including the Isaac Sim
-Dockerfile's `RLMESH_VERSION`.
+The examples pin `rlmesh==0.1.0`. Use the same SDK version in the client and
+container. When updating it, update the project pins and lockfiles together, including both Isaac
+Sim Dockerfiles' `RLMESH_VERSION`.
 
 [`mise`](https://mise.jdx.dev/) is optional. Its component configs select Python and activate that
 component's `.venv`; run `mise trust` in each directory when prompted. Without it, `uv run` uses the

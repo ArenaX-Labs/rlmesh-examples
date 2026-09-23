@@ -5,7 +5,7 @@ requires-python = ">=3.11"
 dependencies = [
   "stable-baselines3>=2.7",
   "gymnasium[mujoco]>=1.2",
-  "rlmesh==0.1.0rc15",
+  "rlmesh==0.1.0",
   "numpy",
   "imageio[ffmpeg]",
   "tqdm",

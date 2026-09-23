@@ -260,23 +260,23 @@ wheels = [
 
 [[package]]
 name = "rlmesh"
-version = "0.1.0rc15"
+version = "0.1.0"
 source = { registry = "https://pypi.org/simple" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/99/1e/1232bdcb34693b98e60c75f927bf2b1984d082d97ed3b8dd31d68a093f0d/rlmesh-0.1.0rc15-cp310-cp310-macosx_10_12_x86_64.whl", hash = "sha256:0162917f8708a47f7af84b3dde855d7eff15e0f0a46fc671e850705334867ca1", size = 9368564, upload-time = "2026-09-23T16:06:45.233Z" },
-    { url = "https://files.pythonhosted.org/packages/a1/4c/b42eff49ed301ceeeb0195ee9805078160561252f7587d3e582d1265c02a/rlmesh-0.1.0rc15-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:c96d63bb3e4aaef58a61f70d0c038115091ca88aa30db9c4af4d9a5df4ed1f3e", size = 9155624, upload-time = "2026-09-23T16:06:47.204Z" },
-    { url = "https://files.pythonhosted.org/packages/1f/bf/092cf83b1c082fd66541bd94afcd99b185d6d530e141e1e70ac0c42f0ad7/rlmesh-0.1.0rc15-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:bc565352774b25c62d4a438716493c418f63352e1de0825d789ac699e4155d07", size = 9402249, upload-time = "2026-09-23T16:06:49.035Z" },
-    { url = "https://files.pythonhosted.org/packages/a6/52/291d8f3c0c58222b5fb4a20fedb3d09d4c1bfc383be7d68eccdc369b67d0/rlmesh-0.1.0rc15-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:0cae2aecf15881d867af9299ac27f6a7de28e89f82ce2fa7a06e2c0c575dd5e8", size = 9817689, upload-time = "2026-09-23T16:06:50.978Z" },
-    { url = "https://files.pythonhosted.org/packages/b8/b3/97c839e5b88b8cf5a014e70013b862590259f4933a2822a3bba6b86f9ea5/rlmesh-0.1.0rc15-cp310-cp310-musllinux_1_2_aarch64.whl", hash = "sha256:c81d90a790e3a32707961eeaec7a19051df06dfab9ec89472f72a6dda7187a37", size = 9407353, upload-time = "2026-09-23T16:06:53.144Z" },
-    { url = "https://files.pythonhosted.org/packages/fd/1d/77c84835ab92cc970d6eae3bbf8ffe4145c3023821fd66e38f91dbd47d28/rlmesh-0.1.0rc15-cp310-cp310-musllinux_1_2_x86_64.whl", hash = "sha256:02d069b0c92201c47cc3879854371821974c0215ab2eb43a86963f3f215fc48d", size = 9822106, upload-time = "2026-09-23T16:06:54.85Z" },
-    { url = "https://files.pythonhosted.org/packages/30/20/32c75d1707a933111c50760323ab9f8900bdb86dd34840f79989000312e8/rlmesh-0.1.0rc15-cp310-cp310-win_amd64.whl", hash = "sha256:2d337c51017920a59a0972fba7a312feb0958c2acae4356bc7d37365edda3c5d", size = 9072273, upload-time = "2026-09-23T16:06:56.996Z" },
-    { url = "https://files.pythonhosted.org/packages/ee/72/a4f40cf9be71c85b5bb27f4fb48edae30b7fd0de6e5c647a5244b1c94f10/rlmesh-0.1.0rc15-cp311-abi3-macosx_10_12_x86_64.whl", hash = "sha256:2359b7f8e19155cca1be3dd8826cc794896dc288d75eb8073b540f04a9b7ecd7", size = 9334596, upload-time = "2026-09-23T16:06:59.314Z" },
-    { url = "https://files.pythonhosted.org/packages/77/1a/baa0224ea7e7e1a1b83f067b13a41b59994f61111ac28b355d42dc47e761/rlmesh-0.1.0rc15-cp311-abi3-macosx_11_0_arm64.whl", hash = "sha256:c2ded30253866ad2a68d5090fc01096beb052c6d5a8aea8221510b17d86d4b69", size = 9111285, upload-time = "2026-09-23T16:07:01.628Z" },
-    { url = "https://files.pythonhosted.org/packages/0d/94/53c3e7cebe2f3229b41d50bb0b29283fc5520f53f4a3251c557dbdb5287f/rlmesh-0.1.0rc15-cp311-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:e6fba1de127a9107f0e5703621d72d7a4d75f98ec2458890f98946af2721e246", size = 9358271, upload-time = "2026-09-23T16:07:03.761Z" },
-    { url = "https://files.pythonhosted.org/packages/0f/3b/3b1cdb1c8415d801962c53a97cbe6e53bb81cda20e128dd64ce00811a463/rlmesh-0.1.0rc15-cp311-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:59ff82961c7521a8702a8faba2718fad01d309f9b4d6aeb48122999e1dc25093", size = 9808195, upload-time = "2026-09-23T16:07:05.608Z" },
-    { url = "https://files.pythonhosted.org/packages/c6/17/e496ca90125e27f5c87340e33e8f1693bac94ff5c5de63d12f5e6b9a7434/rlmesh-0.1.0rc15-cp311-abi3-musllinux_1_2_aarch64.whl", hash = "sha256:f35ca8af4e10d630257381971e0c63e23a650db1afe2693288ece46fa1a06068", size = 9364452, upload-time = "2026-09-23T16:07:07.884Z" },
-    { url = "https://files.pythonhosted.org/packages/20/f7/5e702dc2b1f7a5f234ee47acc83cb452a311156da8b4ee244f12ad1fe11e/rlmesh-0.1.0rc15-cp311-abi3-musllinux_1_2_x86_64.whl", hash = "sha256:0ba30bbd2f6f657765e10e3d558d6d1cbdae51005362e36dcbb469217e6c249b", size = 9806227, upload-time = "2026-09-23T16:07:10.065Z" },
-    { url = "https://files.pythonhosted.org/packages/9e/a9/e74236481cddf83efa58249e7c361c47760f1d8eaaf97e9866fdc0df2ce6/rlmesh-0.1.0rc15-cp311-abi3-win_amd64.whl", hash = "sha256:0f2d4e42eb570f637c9c1c6b98317e8eb57b1697cf987d10e06033e1edaa212a", size = 9031710, upload-time = "2026-09-23T16:07:12.508Z" },
+    { url = "https://files.pythonhosted.org/packages/96/13/089d43de94d2c3898d997bb1dcd52e53aecb858b4f43a1b8ef50879c934f/rlmesh-0.1.0-cp310-cp310-macosx_10_12_x86_64.whl", hash = "sha256:8e9b07301ac9c3775ed0aa70fd488abe2379319ee6f0508fa9794711ac2a0b84", size = 9365438, upload-time = "2026-09-23T17:56:27.507Z" },
+    { url = "https://files.pythonhosted.org/packages/fc/7b/1e1d9946f45752a2e0471154f5baa1eb6ebe5490686cca28899920e4813a/rlmesh-0.1.0-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:7dcfcf994ba2ce8202770bc5cd8fcb00b7c190f7dee45fc9dbc9af56fd56a71d", size = 9126247, upload-time = "2026-09-23T17:56:29.641Z" },
+    { url = "https://files.pythonhosted.org/packages/f6/6e/6ea375099a819993f4049c08df53bce303342a5dd5ba3d6cf0dfc6d940a1/rlmesh-0.1.0-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:d9bbaeeedae756e6c47b9ee40af25fff0a23b6e596fe5d9d6683a98ff4743b86", size = 9381047, upload-time = "2026-09-23T17:56:31.532Z" },
+    { url = "https://files.pythonhosted.org/packages/23/ab/e183eb8f57d94058adf344e59423f09970661b035f2b15069817db8c50ad/rlmesh-0.1.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:b5da347509f5ef83e9c2efa5820489f29a25208bb08de26ca4580fcda2920245", size = 9817445, upload-time = "2026-09-23T17:56:33.329Z" },
+    { url = "https://files.pythonhosted.org/packages/2e/5d/dde80824f303395c5f4457e409e715445a3bc8b51131af3b244329ad3b8b/rlmesh-0.1.0-cp310-cp310-musllinux_1_2_aarch64.whl", hash = "sha256:86ce5a9052e04f0059e035d8f215908fa3186cf41fb52c127515fcb65b74e2fe", size = 9383416, upload-time = "2026-09-23T17:56:35.978Z" },
+    { url = "https://files.pythonhosted.org/packages/88/94/b410ced181f5a6a891f0bfef72113a350d23aa4171f9b64571ef792e2442/rlmesh-0.1.0-cp310-cp310-musllinux_1_2_x86_64.whl", hash = "sha256:1e2e08ebe1b92ff9e024118a93310a6f1615d85afdc06d7cc3fdf1edc3a785f5", size = 9820854, upload-time = "2026-09-23T17:56:38.212Z" },
+    { url = "https://files.pythonhosted.org/packages/ae/cd/9d78066cc3506087864fa9dc3f793c6bfeced8815230c175bf91f1001868/rlmesh-0.1.0-cp310-cp310-win_amd64.whl", hash = "sha256:fbdce92e74a5e8931b2873ad09d517631706956cce9fc56645343f18b6a08323", size = 9042577, upload-time = "2026-09-23T17:56:40.239Z" },
+    { url = "https://files.pythonhosted.org/packages/ff/39/4a2ae149dd12c8dfcbb61a7c33942c5c88a79ce5d335c37a3f86b3bd9885/rlmesh-0.1.0-cp311-abi3-macosx_10_12_x86_64.whl", hash = "sha256:3c38066abe882b0b62ee709be5b90f06131ea0f3b1599122b8cca7707daf1361", size = 9315006, upload-time = "2026-09-23T17:56:42.365Z" },
+    { url = "https://files.pythonhosted.org/packages/62/58/8fa9820735e466df480dd0596cae09f99f691c15d7f81df96d729aa6a06c/rlmesh-0.1.0-cp311-abi3-macosx_11_0_arm64.whl", hash = "sha256:b4725b94fd175827c51e300df52aa9dbfe84692cb2d39c9499cfa00103d88b44", size = 9099996, upload-time = "2026-09-23T17:56:44.199Z" },
+    { url = "https://files.pythonhosted.org/packages/f1/b2/1e456a4fad4d04fadbd53989cd5612c4c0ec581cb9f0c0675d18eef49e14/rlmesh-0.1.0-cp311-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:5cffa9727331bb27ac6d7d79a324551540b9141a0983952b848fe9c6d408f563", size = 9350902, upload-time = "2026-09-23T17:56:46.152Z" },
+    { url = "https://files.pythonhosted.org/packages/51/92/541b01a4ce2ce51a14d6c4cf4ba5889648da8a1287dca35f3bbc03eb914a/rlmesh-0.1.0-cp311-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:5f9ff759543d43e5044b9ec8ba19290a4cbd65c5dc4158428f93f809f2ef177a", size = 9770905, upload-time = "2026-09-23T17:56:48.257Z" },
+    { url = "https://files.pythonhosted.org/packages/7d/5b/f0e56f43e18211f431e2ed4a7d29ec74cd84bfcd469176caa26e12b7a6c7/rlmesh-0.1.0-cp311-abi3-musllinux_1_2_aarch64.whl", hash = "sha256:20ee744025407384ed5780a0fa38f3bbff9d5465f046dfdc9b0f38e1199227b3", size = 9351785, upload-time = "2026-09-23T17:56:50.316Z" },
+    { url = "https://files.pythonhosted.org/packages/a9/45/b66821f6bcc20677f830981d9bbc8a02acb6a90a81512d70609b5dd12da2/rlmesh-0.1.0-cp311-abi3-musllinux_1_2_x86_64.whl", hash = "sha256:048284a395122dc21d6b115f51521736f9fb28aa867da4fa117131ba6d8fb6bd", size = 9772187, upload-time = "2026-09-23T17:56:52.207Z" },
+    { url = "https://files.pythonhosted.org/packages/e9/55/78462fa4d252e83a35dd00cb7800d5ec9037233b8a8e71e1614812e9ea3f/rlmesh-0.1.0-cp311-abi3-win_amd64.whl", hash = "sha256:54506f0be57f0df7b97dc2d2b0fd3ee8d8aa0080e7adcac4546de610815b9901", size = 9006247, upload-time = "2026-09-23T17:56:54.017Z" },
 ]
 
 [[package]]
@@ -292,7 +292,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "numpy" },
-    { name = "rlmesh", specifier = "==0.1.0rc15" },
+    { name = "rlmesh", specifier = "==0.1.0" },
     { name = "safety-gymnasium", specifier = "==1.0.0" },
 ]
 

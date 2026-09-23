@@ -2,7 +2,7 @@
 name = "rlmesh-interface-mismatch-sim"
 version = "0.0.0"
 requires-python = ">=3.11"
-dependencies = ["dm-control==1.0.31", "mujoco==3.3.5", "gymnasium", "rlmesh==0.1.0rc15", "numpy"]
+dependencies = ["dm-control==1.0.31", "mujoco==3.3.5", "gymnasium", "rlmesh==0.1.0", "numpy"]
 
 [tool.rlmesh]
 workflow_edition = "2026.06"

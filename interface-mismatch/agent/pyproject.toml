@@ -2,7 +2,7 @@
 name = "rlmesh-interface-mismatch-agent"
 version = "0.0.0"
 requires-python = ">=3.11"
-dependencies = ["torch", "rlmesh==0.1.0rc15", "numpy", "imageio[ffmpeg]", "tqdm"]
+dependencies = ["torch", "rlmesh==0.1.0", "numpy", "imageio[ffmpeg]", "tqdm"]
 
 [tool.uv.sources]
 torch = { index = "pytorch-cpu" }
