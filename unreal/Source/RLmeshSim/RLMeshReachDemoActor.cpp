@@ -13,6 +13,7 @@ ARLMeshReachDemoActor::ARLMeshReachDemoActor()
 
 	Mesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Mesh"));
 	SetRootComponent(Mesh);
+	Mesh->SetMobility(EComponentMobility::Movable);
 	Mesh->SetSimulatePhysics(false);
 	Mesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 	Mesh->SetCollisionProfileName(TEXT("BlockAll"));
@@ -76,5 +77,15 @@ void ARLMeshReachDemoActor::BeginPlay()
 	SetFloat(TEXT("TargetRange"), 1000.f);
 	SetInt(TEXT("MaxSteps"), 200);
 
+	if (IsValid(TargetActor))
+	{
+		if (FObjectPropertyBase* Prop =
+				FindFProperty<FObjectPropertyBase>(ReachTarget->GetClass(), TEXT("TargetActor")))
+		{
+			Prop->SetObjectPropertyValue_InContainer(ReachTarget, TargetActor);
+		}
+	}
+
+	AddInstanceComponent(ReachTarget);
 	ReachTarget->RegisterComponent();
 }
