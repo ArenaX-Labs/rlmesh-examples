@@ -29,4 +29,11 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "RLMesh")
 	TObjectPtr<UActorComponent> ReachTarget;
+
+	/**
+	 * Optional level actor used as the Reach Target goal (world XYZ).
+	 * Copied onto URLMeshReachTargetComponent::TargetActor at BeginPlay.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RLMesh")
+	TObjectPtr<AActor> TargetActor;
 };
