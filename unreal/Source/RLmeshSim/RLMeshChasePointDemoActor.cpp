@@ -24,6 +24,11 @@ ARLMeshChasePointDemoActor::ARLMeshChasePointDemoActor()
 	{
 		Mesh->SetStaticMesh(CubeMesh.Object);
 	}
+	static ConstructorHelpers::FObjectFinder<UMaterialInterface> BlueMat(TEXT("/Game/Blue.Blue"));
+	if (BlueMat.Succeeded())
+	{
+		Mesh->SetMaterial(0, BlueMat.Object);
+	}
 	Mesh->SetWorldScale3D(FVector(0.5f));
 }
 
