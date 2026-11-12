@@ -5,6 +5,7 @@
 #include "Components/ActorComponent.h"
 #include "EngineUtils.h"
 #include "PlayerPawn.h"
+#include "RLMeshAvoidHazardsDemoActor.h"
 #include "RLMeshChasePointDemoActor.h"
 #include "RLMeshDemoControl.h"
 #include "RLMeshReachDemoActor.h"
@@ -27,6 +28,10 @@ bool ARLMeshDemoGameMode::LevelAlreadyHasEnv() const
 		return true;
 	}
 	for (TActorIterator<ARLMeshChasePointDemoActor> It(World); It; ++It)
+	{
+		return true;
+	}
+	for (TActorIterator<ARLMeshAvoidHazardsDemoActor> It(World); It; ++It)
 	{
 		return true;
 	}
