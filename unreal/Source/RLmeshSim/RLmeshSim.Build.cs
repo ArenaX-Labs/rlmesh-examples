@@ -22,5 +22,15 @@ public class RLmeshSim : ModuleRules
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] { });
+
+		if (Target.bBuildEditor)
+		{
+			// Starts demo_control_server.py on Play (scenario load API).
+			PrivateDependencyModuleNames.AddRange(new string[]
+			{
+				"PythonScriptPlugin",
+				"UnrealEd",
+			});
+		}
 	}
 }
