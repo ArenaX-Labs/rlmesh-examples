@@ -7,8 +7,8 @@
 #include "RLMeshDemoGameMode.generated.h"
 
 /**
- * Spawns an ARLMeshReachDemoActor at Play if the level has none, so any map
- * can demo the RLMesh Reach Target env without hand-placing the actor.
+ * On Play: starts the demo control HTTP API (editor Python) and only auto-spawns
+ * a Reach Target demo actor when the level has no RLMesh env yet.
  */
 UCLASS()
 class RLMESHSIM_API ARLMeshDemoGameMode : public AGameModeBase
@@ -24,4 +24,8 @@ protected:
 	/** World location for an auto-spawned demo actor. */
 	UPROPERTY(EditAnywhere, Category = "RLMesh")
 	FVector DemoSpawnLocation = FVector(0.f, 0.f, 50.f);
+
+private:
+	void EnsureDemoControlServer();
+	bool LevelAlreadyHasEnv() const;
 };

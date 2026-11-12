@@ -5,6 +5,8 @@
 #include "Components/ActorComponent.h"
 #include "EngineUtils.h"
 #include "PlayerPawn.h"
+#include "RLMeshChasePointDemoActor.h"
+#include "RLMeshDemoControl.h"
 #include "RLMeshReachDemoActor.h"
 
 ARLMeshDemoGameMode::ARLMeshDemoGameMode()
@@ -12,32 +14,52 @@ ARLMeshDemoGameMode::ARLMeshDemoGameMode()
 	DefaultPawnClass = APlayerPawn::StaticClass();
 }
 
+bool ARLMeshDemoGameMode::LevelAlreadyHasEnv() const
+{
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return false;
+	}
+
+	for (TActorIterator<ARLMeshReachDemoActor> It(World); It; ++It)
+	{
+		return true;
+	}
+	for (TActorIterator<ARLMeshChasePointDemoActor> It(World); It; ++It)
+	{
+		return true;
+	}
+
+	if (UClass* EnvClass =
+			LoadClass<UActorComponent>(nullptr, TEXT("/Script/RLMeshUnreal.RLMeshEnvComponent")))
+	{
+		for (TActorIterator<AActor> It(World); It; ++It)
+		{
+			if (It->FindComponentByClass(EnvClass))
+			{
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
 void ARLMeshDemoGameMode::BeginPlay()
 {
 	Super::BeginPlay();
+
+	RLMeshEnsureDemoControlServer();
+
+	if (LevelAlreadyHasEnv())
+	{
+		return;
+	}
 
 	UWorld* World = GetWorld();
 	if (!World)
 	{
 		return;
-	}
-
-	for (TActorIterator<ARLMeshReachDemoActor> It(World); It; ++It)
-	{
-		return;
-	}
-
-	// A Blueprint (e.g. /Game/RLMesh) may already host Reach Target — don't double-serve.
-	if (UClass* ReachClass = LoadClass<UActorComponent>(
-			nullptr, TEXT("/Script/RLMeshUnreal.RLMeshReachTargetComponent")))
-	{
-		for (TActorIterator<AActor> It(World); It; ++It)
-		{
-			if (It->FindComponentByClass(ReachClass))
-			{
-				return;
-			}
-		}
 	}
 
 	FActorSpawnParameters Params;
