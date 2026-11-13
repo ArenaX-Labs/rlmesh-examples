@@ -4,6 +4,7 @@
 
 #include "Components/ActorComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "RLmeshSim.h"
 #include "UObject/ConstructorHelpers.h"
 #include "UObject/UnrealType.h"
 
@@ -44,7 +45,7 @@ void ARLMeshReachDemoActor::BeginPlay()
 		nullptr, TEXT("/Script/RLMeshUnreal.RLMeshReachTargetComponent"));
 	if (!ReachClass)
 	{
-		UE_LOG(LogTemp, Error, TEXT("RLMeshReachDemoActor: could not load RLMeshReachTargetComponent"));
+		UE_LOG(LogRLmeshSim, Error, TEXT("RLMeshReachDemoActor: could not load RLMeshReachTargetComponent"));
 		return;
 	}
 

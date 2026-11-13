@@ -7,7 +7,7 @@
 #include "RLMeshDemoArenaDemoActor.generated.h"
 
 class UStaticMeshComponent;
-class UActorComponent;
+class URLMeshDemoArenaComponent;
 
 /**
  * Visible cube that attaches URLMeshDemoArenaComponent at BeginPlay.
@@ -28,7 +28,7 @@ protected:
 	TObjectPtr<UStaticMeshComponent> Mesh;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "RLMesh")
-	TObjectPtr<UActorComponent> DemoArena;
+	TObjectPtr<URLMeshDemoArenaComponent> DemoArena;
 
 	/** Optional level Goal actor (world XY); also discoverable by label. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RLMesh")

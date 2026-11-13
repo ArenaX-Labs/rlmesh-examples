@@ -1,8 +1,8 @@
 {
 	"FileVersion": 3,
 	"EngineAssociation": "5.6",
-	"Category": "",
-	"Description": "",
+	"Category": "Samples",
+	"Description": "Example Unreal project for RLMesh: plugin env hosts, Demo Arena showcase, and optional editor helpers.",
 	"Modules": [
 		{
 			"Name": "RLmeshSim",

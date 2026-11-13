@@ -17,7 +17,6 @@ public class RLmeshSim : ModuleRules
 			"CoreUObject",
 			"Engine",
 			"InputCore",
-			"EnhancedInput",
 			"RLMeshUnreal",
 		});
 
@@ -25,7 +24,7 @@ public class RLmeshSim : ModuleRules
 
 		if (Target.bBuildEditor)
 		{
-			// Starts demo_control_server.py on Play (scenario load API).
+			// Optional sample helper: demo_control_server.py (env swap HTTP API).
 			PrivateDependencyModuleNames.AddRange(new string[]
 			{
 				"PythonScriptPlugin",

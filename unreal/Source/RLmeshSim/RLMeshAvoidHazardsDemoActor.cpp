@@ -4,6 +4,7 @@
 
 #include "Components/ActorComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "RLmeshSim.h"
 #include "UObject/ConstructorHelpers.h"
 #include "UObject/UnrealType.h"
 
@@ -44,7 +45,7 @@ void ARLMeshAvoidHazardsDemoActor::BeginPlay()
 		nullptr, TEXT("/Script/RLMeshUnreal.RLMeshAvoidHazardsComponent"));
 	if (!AvoidClass)
 	{
-		UE_LOG(LogTemp, Error,
+		UE_LOG(LogRLmeshSim, Error,
 			   TEXT("RLMeshAvoidHazardsDemoActor: could not load RLMeshAvoidHazardsComponent"));
 		return;
 	}

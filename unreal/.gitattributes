@@ -1,0 +1,31 @@
+# Normalize text; keep Unreal assets binary.
+* text=auto eol=lf
+
+*.md text eol=lf
+*.py text eol=lf
+*.h text eol=lf
+*.cpp text eol=lf
+*.cs text eol=lf
+*.ini text eol=lf
+*.uproject text eol=lf
+*.uplugin text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.toml text eol=lf
+*.txt text eol=lf
+*.gitignore text eol=lf
+*.gitattributes text eol=lf
+
+*.uasset binary
+*.umap binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.tga binary
+*.fbx binary
+*.wav binary
+*.dll binary
+*.exe binary
+*.lib binary
+*.pdb binary
