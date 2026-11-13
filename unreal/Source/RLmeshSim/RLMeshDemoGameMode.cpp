@@ -8,6 +8,7 @@
 #include "RLMeshAvoidHazardsDemoActor.h"
 #include "RLMeshChasePointDemoActor.h"
 #include "RLMeshCollectCoinsDemoActor.h"
+#include "RLMeshDemoArenaDemoActor.h"
 #include "RLMeshDemoControl.h"
 #include "RLMeshReachDemoActor.h"
 
@@ -37,6 +38,10 @@ bool ARLMeshDemoGameMode::LevelAlreadyHasEnv() const
 		return true;
 	}
 	for (TActorIterator<ARLMeshCollectCoinsDemoActor> It(World); It; ++It)
+	{
+		return true;
+	}
+	for (TActorIterator<ARLMeshDemoArenaDemoActor> It(World); It; ++It)
 	{
 		return true;
 	}
