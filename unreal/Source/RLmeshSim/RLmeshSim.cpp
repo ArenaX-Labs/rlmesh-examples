@@ -5,6 +5,8 @@
 #include "Modules/ModuleManager.h"
 #include "RLMeshDemoControl.h"
 
+DEFINE_LOG_CATEGORY(LogRLmeshSim);
+
 #if WITH_EDITOR
 #include "Containers/Ticker.h"
 #include "Editor.h"
@@ -20,8 +22,8 @@ public:
 #if WITH_EDITOR
 		if (GIsEditor)
 		{
-			// Start demo control after the editor/Python plugin are ready so
-			// host clients can load a scenario before the first Play.
+			// Optional sample helper: start the in-editor env swap HTTP API
+			// after the editor / Python plugin are ready.
 			PostEngineInitHandle = FCoreDelegates::OnPostEngineInit.AddLambda(
 				[]()
 				{

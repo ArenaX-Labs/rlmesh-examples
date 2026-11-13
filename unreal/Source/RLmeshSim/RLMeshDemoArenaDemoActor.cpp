@@ -2,10 +2,9 @@
 
 #include "RLMeshDemoArenaDemoActor.h"
 
-#include "Components/ActorComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "RLMeshDemoArenaComponent.h"
 #include "UObject/ConstructorHelpers.h"
-#include "UObject/UnrealType.h"
 
 ARLMeshDemoArenaDemoActor::ARLMeshDemoArenaDemoActor()
 {
@@ -30,74 +29,26 @@ ARLMeshDemoArenaDemoActor::ARLMeshDemoArenaDemoActor()
 		Mesh->SetMaterial(0, BlueMat.Object);
 	}
 	Mesh->SetWorldScale3D(FVector(0.5f));
+
+	DemoArena = CreateDefaultSubobject<URLMeshDemoArenaComponent>(TEXT("DemoArena"));
+	DemoArena->Address = TEXT("127.0.0.1:7447/env");
+	DemoArena->EnvId = TEXT("Unreal-DemoArena-v0");
+	DemoArena->StepSize = 50.f;
+	DemoArena->GoalRange = 2000.f;
+	DemoArena->PickupRadius = 40.f;
+	DemoArena->AgentHalfExtent = 25.f;
+	DemoArena->ObstacleHalfExtent = 50.f;
+	DemoArena->MaxSteps = 400;
+	DemoArena->NumCoins = 3;
+	DemoArena->NumObstacles = 1;
 }
 
 void ARLMeshDemoArenaDemoActor::BeginPlay()
 {
 	Super::BeginPlay();
 
-	if (DemoArena)
+	if (DemoArena && IsValid(GoalActor))
 	{
-		return;
+		DemoArena->GoalActor = GoalActor;
 	}
-
-	UClass* ArenaClass = LoadClass<UActorComponent>(
-		nullptr, TEXT("/Script/RLMeshUnreal.RLMeshDemoArenaComponent"));
-	if (!ArenaClass)
-	{
-		UE_LOG(LogTemp, Error,
-			   TEXT("RLMeshDemoArenaDemoActor: could not load RLMeshDemoArenaComponent"));
-		return;
-	}
-
-	DemoArena = NewObject<UActorComponent>(this, ArenaClass, TEXT("DemoArena"));
-	if (!DemoArena)
-	{
-		return;
-	}
-
-	auto SetStr = [this](const TCHAR* Name, const FString& Value)
-	{
-		if (FStrProperty* Prop = FindFProperty<FStrProperty>(DemoArena->GetClass(), Name))
-		{
-			Prop->SetPropertyValue_InContainer(DemoArena, Value);
-		}
-	};
-	auto SetFloat = [this](const TCHAR* Name, float Value)
-	{
-		if (FFloatProperty* Prop = FindFProperty<FFloatProperty>(DemoArena->GetClass(), Name))
-		{
-			Prop->SetPropertyValue_InContainer(DemoArena, Value);
-		}
-	};
-	auto SetInt = [this](const TCHAR* Name, int32 Value)
-	{
-		if (FIntProperty* Prop = FindFProperty<FIntProperty>(DemoArena->GetClass(), Name))
-		{
-			Prop->SetPropertyValue_InContainer(DemoArena, Value);
-		}
-	};
-
-	SetStr(TEXT("Address"), TEXT("127.0.0.1:7447/env"));
-	SetStr(TEXT("EnvId"), TEXT("Unreal-DemoArena-v0"));
-	SetFloat(TEXT("StepSize"), 50.f);
-	SetFloat(TEXT("GoalRange"), 2000.f);
-	SetFloat(TEXT("PickupRadius"), 40.f);
-	SetFloat(TEXT("AgentHalfExtent"), 25.f);
-	SetFloat(TEXT("ObstacleHalfExtent"), 50.f);
-	SetInt(TEXT("MaxSteps"), 400);
-	SetInt(TEXT("NumCoins"), 3);
-	SetInt(TEXT("NumObstacles"), 1);
-
-	if (IsValid(GoalActor))
-	{
-		if (FObjectPropertyBase* Prop =
-				FindFProperty<FObjectPropertyBase>(DemoArena->GetClass(), TEXT("GoalActor")))
-		{
-			Prop->SetObjectPropertyValue_InContainer(DemoArena, GoalActor);
-		}
-	}
-
-	AddInstanceComponent(DemoArena);
-	DemoArena->RegisterComponent();
 }

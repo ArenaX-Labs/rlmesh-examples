@@ -4,6 +4,7 @@
 
 #include "Components/ActorComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "RLmeshSim.h"
 #include "UObject/ConstructorHelpers.h"
 #include "UObject/UnrealType.h"
 
@@ -44,7 +45,7 @@ void ARLMeshCollectCoinsDemoActor::BeginPlay()
 		nullptr, TEXT("/Script/RLMeshUnreal.RLMeshCollectCoinsComponent"));
 	if (!CollectClass)
 	{
-		UE_LOG(LogTemp, Error,
+		UE_LOG(LogRLmeshSim, Error,
 			   TEXT("RLMeshCollectCoinsDemoActor: could not load RLMeshCollectCoinsComponent"));
 		return;
 	}

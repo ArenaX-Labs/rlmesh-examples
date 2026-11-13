@@ -3,6 +3,7 @@
 #include "RLMeshDemoControl.h"
 
 #include "Misc/Paths.h"
+#include "RLmeshSim.h"
 
 #if WITH_EDITOR
 #include "IPythonScriptPlugin.h"
@@ -15,14 +16,14 @@ void RLMeshEnsureDemoControlServer()
 		FPaths::ConvertRelativePathToFull(FPaths::ProjectDir() / TEXT("Scripts/demo_control_server.py"));
 	if (!FPaths::FileExists(ScriptPath))
 	{
-		UE_LOG(LogTemp, Warning, TEXT("RLMesh demo control: script missing at %s"), *ScriptPath);
+		UE_LOG(LogRLmeshSim, Warning, TEXT("Env helper: script missing at %s"), *ScriptPath);
 		return;
 	}
 
 	IPythonScriptPlugin* Python = IPythonScriptPlugin::Get();
 	if (!Python || !Python->IsPythonAvailable())
 	{
-		UE_LOG(LogTemp, Warning, TEXT("RLMesh demo control: Python editor plugin unavailable"));
+		UE_LOG(LogRLmeshSim, Warning, TEXT("Env helper: Python editor plugin unavailable"));
 		return;
 	}
 
@@ -30,9 +31,9 @@ void RLMeshEnsureDemoControlServer()
 		TEXT("import runpy; runpy.run_path(r'%s', run_name='__main__')"), *ScriptPath);
 	if (!Python->ExecPythonCommand(*Cmd))
 	{
-		UE_LOG(LogTemp, Warning, TEXT("RLMesh demo control: failed to exec %s"), *ScriptPath);
+		UE_LOG(LogRLmeshSim, Warning, TEXT("Env helper: failed to exec %s"), *ScriptPath);
 		return;
 	}
-	UE_LOG(LogTemp, Log, TEXT("RLMesh demo control: ensured server via %s"), *ScriptPath);
+	UE_LOG(LogRLmeshSim, Log, TEXT("Env helper: ensured server via %s"), *ScriptPath);
 #endif
 }
