@@ -7,11 +7,10 @@
 #include "RLMeshChasePointDemoActor.generated.h"
 
 class UStaticMeshComponent;
-class UActorComponent;
+class URLMeshChasePointComponent;
 
 /**
- * Visible cube that attaches URLMeshChasePointComponent at BeginPlay and
- * serves the Chase Point env. Avoids including rlmesh.hpp in this module.
+ * Visible cube with a URLMeshChasePointComponent (CreateDefaultSubobject).
  */
 UCLASS()
 class RLMESHSIM_API ARLMeshChasePointDemoActor : public AActor
@@ -28,12 +27,9 @@ protected:
 	TObjectPtr<UStaticMeshComponent> Mesh;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "RLMesh")
-	TObjectPtr<UActorComponent> ChasePoint;
+	TObjectPtr<URLMeshChasePointComponent> ChasePoint;
 
-	/**
-	 * Optional level actor used as the Chase Point goal (world XY).
-	 * Copied onto URLMeshChasePointComponent::GoalActor at BeginPlay.
-	 */
+	/** Optional level actor used as the Chase Point goal (world XY). */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RLMesh")
 	TObjectPtr<AActor> GoalActor;
 };

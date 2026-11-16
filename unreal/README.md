@@ -1,6 +1,6 @@
 # RLmeshSim
 
-Example Unreal Engine **5.6** project for [RLMesh](https://github.com/ArenaX-Labs/rlmesh). It shows how to host RL envs inside Unreal with the RLMesh plugin and drive them from Python.
+Example Unreal Engine **5.6** project for [RLMesh](https://github.com/ArenaX-Labs/rlmesh). It hosts RL envs with the RLMesh plugin and drives them from Python.
 
 **Dependency direction:** this project depends on rlmesh. The plugin does not depend on this project.
 
@@ -8,98 +8,68 @@ Example Unreal Engine **5.6** project for [RLMesh](https://github.com/ArenaX-Lab
 
 | Piece | Role |
 |-------|------|
-| Four plugin env hosts | Reach Target, Chase Point, Avoid Hazards, Collect Coins (plugin components on demo actors) |
-| Demo Arena | Authored map `/Game/GameScene_Demo` + game-module component (this sample only) |
-| Optional editor helper | HTTP API on `:8878` to swap environments and Press Play while iterating |
+| Plugin (from rlmesh) | **Reach Target** + base `URLMeshEnvComponent` |
+| This game module | Chase Point, Avoid Hazards, Collect Coins, Demo Arena |
+| Python clients | `Scripts/demos/` — plain `rlmesh.numpy.Model` + `rlmesh.run` |
+| Optional editor helper | HTTP API on `:8878` to swap environments and Press Play |
 
 ## Requirements
 
 - Unreal Engine **5.6**
 - [rlmesh](https://github.com/ArenaX-Labs/rlmesh) checkout (or matching release artifacts):
   - Plugin: `integrations/unreal/RLMesh` + unpacked ThirdParty `rlmesh_capi`
-  - Python: `mise run setup:python` in the rlmesh checkout
+  - Python: `mise run setup:python` (or the checkout `.venv`)
 - Editor **Python Script Plugin** (enabled in this `.uproject`)
 
 ## Setup
 
 1. Clone this repo and clone/build [rlmesh](https://github.com/ArenaX-Labs/rlmesh).
-2. Install the plugin into `Plugins/RLMesh/` (copy or directory junction from rlmesh `integrations/unreal/RLMesh`).
-3. Unpack the matching `rlmesh_capi` package under `Plugins/RLMesh/Source/ThirdParty/rlmesh/` (see rlmesh [`docs/unreal-local.md`](https://github.com/ArenaX-Labs/rlmesh/blob/main/docs/unreal-local.md)).
-4. Right-click `RLmeshSim.uproject` → **Generate Visual Studio project files**, then open and build if prompted.
-5. Once per machine, from the **rlmesh** checkout:
+2. Install the plugin into `Plugins/RLMesh/` (copy or junction from rlmesh `integrations/unreal/RLMesh`).
+3. Unpack matching `rlmesh_capi` under `Plugins/RLMesh/Source/ThirdParty/rlmesh/` (see rlmesh `docs/unreal-local.md`).
+4. Generate project files, open, build.
+5. Optional stable Serving `#keys` (once per machine):
 
    ```bash
-   python integrations/unreal/demos/reach_target/app.py --init-identity
+   rlmesh host-identity new --out "%LOCALAPPDATA%/rlmesh/unreal_host_identity"
    ```
 
-   Rebuild or relaunch the editor so LogRLMesh shows `Loaded RLMESH_HOST_IDENTITY`.
+## Run demos
 
-## Quick start
+Use a Python that has the `rlmesh` package (rlmesh `.venv` recommended). Copy the Serving address from LogRLMesh after Play (or pass it via `--address` / `RLMESH_UNREAL_ADDR`).
 
-1. Open this project. Default map is `/Game/GameScene`. On Play with an empty level, the game mode spawns a Reach Target host so Serving starts immediately.
-2. From the **rlmesh** checkout (editor Playing, LogRLMesh shows Serving):
+**Reach Target** (plugin component; client in rlmesh):
 
-   ```bash
-   python integrations/unreal/demos/reach_target/app.py --verbose
-   ```
-
-   Use `RLMESH_UNREAL_ADDR` from rlmesh `integrations/unreal/.env`, or pass `--address` from the Serving line in the log.
-
-Other portable clients (same pattern — Press Play with that env Serving first):
-
-```bash
-python integrations/unreal/demos/chase_point/app.py --verbose
-python integrations/unreal/demos/avoid_hazards/app.py --verbose
-python integrations/unreal/demos/collect_coins/app.py --verbose
+```powershell
+python Scripts/demo_client.py ensure reach_target
+<path-to-rlmesh>\.venv\Scripts\python.exe integrations/unreal/demos/reach_target/toward_target.py "127.0.0.1:7447#<key>/env"
 ```
 
-## Switching environments in the editor (optional)
+**Chase / Avoid / Collect / Demo Arena** (components + clients in this project):
 
-This sample auto-starts a small HTTP helper on `http://127.0.0.1:8878` so you can swap hosts/maps without placing actors by hand:
-
-```bash
-python Scripts/demo_client.py list
-python Scripts/demo_client.py ensure chase_point
-python Scripts/demo_client.py ensure demo_arena
+```powershell
+# From RLmeshSim root — use the rlmesh venv python
+<path-to-rlmesh>\.venv\Scripts\python.exe Scripts/demos/chase_point/app.py --verbose --address "127.0.0.1:7447#<key>/env"
+<path-to-rlmesh>\.venv\Scripts\python.exe Scripts/demos/avoid_hazards/app.py --verbose --address "…"
+<path-to-rlmesh>\.venv\Scripts\python.exe Scripts/demos/collect_coins/app.py --verbose --address "…"
+<path-to-rlmesh>\.venv\Scripts\python.exe Scripts/demos/demo_arena/app.py --verbose --address "…"
 ```
 
-Or in the editor Python console (`Scripts/` on `sys.path`):
-
-```python
-from envs import activate
-activate("chase_point")
-```
-
-rlmesh suite clients do **not** call this API — they only need Serving + an address.
-
-## Demo Arena (sample-only)
-
-Level-driven showcase on `/Game/GameScene_Demo` (`URLMeshDemoArenaComponent` in this game module). Bind actors by Outliner label / tag prefix `Goal*`, `Coin*`, `Obstacle*` / `Hazard*`.
-
-```bash
-# Editor open; helper loads the arena map and Plays:
-python Scripts/demos/demo_arena/app.py --verbose
-
-# Or Play yourself, then:
-python Scripts/demos/demo_arena/app.py --no-ensure --verbose
-```
-
-Demo Arena Python helpers resolve rlmesh `demos/common` via `RLMESH_ROOT` or a junctioned `Plugins/RLMesh`.
+Each `app.py` calls the optional `:8878` helper unless you pass `--no-ensure` (then Press Play yourself).
 
 ## Layout
 
 | Path | Role |
 |------|------|
 | `Content/` | Maps, materials, prop Blueprints |
-| `Source/RLmeshSim/` | Game module, demo hosts, Demo Arena component, editor helper bootstrap |
+| `Source/RLmeshSim/` | Game module: demo actors + Chase/Avoid/Collect/Demo Arena components |
 | `Scripts/demo_control_server.py` | Optional in-editor load/play HTTP API |
 | `Scripts/demo_client.py` | CLI for that API |
-| `Scripts/envs/` | Environment swap used by the helper |
-| `Scripts/demos/demo_arena/` | Demo Arena Python clients |
+| `Scripts/envs/` | Environment swap |
+| `Scripts/demos/` | Python `Model` + `rlmesh.run` clients |
 | `Plugins/RLMesh/` | From rlmesh (gitignored when junctioned) |
 
 ## Notes
 
-- Keep one Serving env active at a time (`envs.activate` removes other hosts).
-- Source the plugin from rlmesh so this sample stays a consumer, not a second source of truth.
-- Licensed dual MIT / Apache-2.0 (same as rlmesh). See `LICENSE-MIT` and `LICENSE-APACHE`.
+- Keep one Serving env active at a time.
+- Source the plugin from rlmesh so this sample stays a consumer.
+- Licensed dual MIT / Apache-2.0. See `LICENSE-MIT` and `LICENSE-APACHE`.

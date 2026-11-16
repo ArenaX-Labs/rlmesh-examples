@@ -2,11 +2,9 @@
 
 #include "RLMeshCollectCoinsDemoActor.h"
 
-#include "Components/ActorComponent.h"
 #include "Components/StaticMeshComponent.h"
-#include "RLmeshSim.h"
+#include "RLMeshCollectCoinsComponent.h"
 #include "UObject/ConstructorHelpers.h"
-#include "UObject/UnrealType.h"
 
 ARLMeshCollectCoinsDemoActor::ARLMeshCollectCoinsDemoActor()
 {
@@ -30,64 +28,15 @@ ARLMeshCollectCoinsDemoActor::ARLMeshCollectCoinsDemoActor()
 		Mesh->SetMaterial(0, BlueMat.Object);
 	}
 	Mesh->SetWorldScale3D(FVector(0.5f));
-}
 
-void ARLMeshCollectCoinsDemoActor::BeginPlay()
-{
-	Super::BeginPlay();
-
-	if (CollectCoins)
-	{
-		return;
-	}
-
-	UClass* CollectClass = LoadClass<UActorComponent>(
-		nullptr, TEXT("/Script/RLMeshUnreal.RLMeshCollectCoinsComponent"));
-	if (!CollectClass)
-	{
-		UE_LOG(LogRLmeshSim, Error,
-			   TEXT("RLMeshCollectCoinsDemoActor: could not load RLMeshCollectCoinsComponent"));
-		return;
-	}
-
-	CollectCoins = NewObject<UActorComponent>(this, CollectClass, TEXT("CollectCoins"));
-	if (!CollectCoins)
-	{
-		return;
-	}
-
-	auto SetStr = [this](const TCHAR* Name, const FString& Value)
-	{
-		if (FStrProperty* Prop = FindFProperty<FStrProperty>(CollectCoins->GetClass(), Name))
-		{
-			Prop->SetPropertyValue_InContainer(CollectCoins, Value);
-		}
-	};
-	auto SetFloat = [this](const TCHAR* Name, float Value)
-	{
-		if (FFloatProperty* Prop = FindFProperty<FFloatProperty>(CollectCoins->GetClass(), Name))
-		{
-			Prop->SetPropertyValue_InContainer(CollectCoins, Value);
-		}
-	};
-	auto SetInt = [this](const TCHAR* Name, int32 Value)
-	{
-		if (FIntProperty* Prop = FindFProperty<FIntProperty>(CollectCoins->GetClass(), Name))
-		{
-			Prop->SetPropertyValue_InContainer(CollectCoins, Value);
-		}
-	};
-
-	SetStr(TEXT("Address"), TEXT("127.0.0.1:7447/env"));
-	SetStr(TEXT("EnvId"), TEXT("Unreal-CollectCoins-v0"));
-	SetFloat(TEXT("StepSize"), 50.f);
-	SetFloat(TEXT("CoinRange"), 1000.f);
-	SetFloat(TEXT("PickupRadius"), 40.f);
-	SetFloat(TEXT("MinClearance"), 200.f);
-	SetFloat(TEXT("CoinHalfExtent"), 30.f);
-	SetInt(TEXT("MaxSteps"), 400);
-	SetInt(TEXT("NumCoins"), 3);
-
-	AddInstanceComponent(CollectCoins);
-	CollectCoins->RegisterComponent();
+	CollectCoins = CreateDefaultSubobject<URLMeshCollectCoinsComponent>(TEXT("CollectCoins"));
+	CollectCoins->Address = TEXT("127.0.0.1:7447/env");
+	CollectCoins->EnvId = TEXT("Unreal-CollectCoins-v0");
+	CollectCoins->StepSize = 50.f;
+	CollectCoins->CoinRange = 1000.f;
+	CollectCoins->PickupRadius = 40.f;
+	CollectCoins->MinClearance = 200.f;
+	CollectCoins->CoinHalfExtent = 30.f;
+	CollectCoins->MaxSteps = 400;
+	CollectCoins->NumCoins = 3;
 }

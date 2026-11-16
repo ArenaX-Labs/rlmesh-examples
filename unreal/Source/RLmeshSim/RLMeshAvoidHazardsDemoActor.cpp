@@ -2,11 +2,9 @@
 
 #include "RLMeshAvoidHazardsDemoActor.h"
 
-#include "Components/ActorComponent.h"
 #include "Components/StaticMeshComponent.h"
-#include "RLmeshSim.h"
+#include "RLMeshAvoidHazardsComponent.h"
 #include "UObject/ConstructorHelpers.h"
-#include "UObject/UnrealType.h"
 
 ARLMeshAvoidHazardsDemoActor::ARLMeshAvoidHazardsDemoActor()
 {
@@ -30,74 +28,26 @@ ARLMeshAvoidHazardsDemoActor::ARLMeshAvoidHazardsDemoActor()
 		Mesh->SetMaterial(0, BlueMat.Object);
 	}
 	Mesh->SetWorldScale3D(FVector(0.5f));
+
+	AvoidHazards = CreateDefaultSubobject<URLMeshAvoidHazardsComponent>(TEXT("AvoidHazards"));
+	AvoidHazards->Address = TEXT("127.0.0.1:7447/env");
+	AvoidHazards->EnvId = TEXT("Unreal-AvoidHazards-v0");
+	AvoidHazards->StepSize = 50.f;
+	AvoidHazards->GoalRange = 1000.f;
+	AvoidHazards->HazardHalfExtent = 50.f;
+	AvoidHazards->AgentHalfExtent = 25.f;
+	AvoidHazards->MinClearance = 150.f;
+	AvoidHazards->HazardPenalty = 1.f;
+	AvoidHazards->MaxSteps = 300;
+	AvoidHazards->NumHazards = 4;
 }
 
 void ARLMeshAvoidHazardsDemoActor::BeginPlay()
 {
 	Super::BeginPlay();
 
-	if (AvoidHazards)
+	if (AvoidHazards && IsValid(GoalActor))
 	{
-		return;
+		AvoidHazards->GoalActor = GoalActor;
 	}
-
-	UClass* AvoidClass = LoadClass<UActorComponent>(
-		nullptr, TEXT("/Script/RLMeshUnreal.RLMeshAvoidHazardsComponent"));
-	if (!AvoidClass)
-	{
-		UE_LOG(LogRLmeshSim, Error,
-			   TEXT("RLMeshAvoidHazardsDemoActor: could not load RLMeshAvoidHazardsComponent"));
-		return;
-	}
-
-	AvoidHazards = NewObject<UActorComponent>(this, AvoidClass, TEXT("AvoidHazards"));
-	if (!AvoidHazards)
-	{
-		return;
-	}
-
-	auto SetStr = [this](const TCHAR* Name, const FString& Value)
-	{
-		if (FStrProperty* Prop = FindFProperty<FStrProperty>(AvoidHazards->GetClass(), Name))
-		{
-			Prop->SetPropertyValue_InContainer(AvoidHazards, Value);
-		}
-	};
-	auto SetFloat = [this](const TCHAR* Name, float Value)
-	{
-		if (FFloatProperty* Prop = FindFProperty<FFloatProperty>(AvoidHazards->GetClass(), Name))
-		{
-			Prop->SetPropertyValue_InContainer(AvoidHazards, Value);
-		}
-	};
-	auto SetInt = [this](const TCHAR* Name, int32 Value)
-	{
-		if (FIntProperty* Prop = FindFProperty<FIntProperty>(AvoidHazards->GetClass(), Name))
-		{
-			Prop->SetPropertyValue_InContainer(AvoidHazards, Value);
-		}
-	};
-
-	SetStr(TEXT("Address"), TEXT("127.0.0.1:7447/env"));
-	SetStr(TEXT("EnvId"), TEXT("Unreal-AvoidHazards-v0"));
-	SetFloat(TEXT("StepSize"), 50.f);
-	SetFloat(TEXT("GoalRange"), 1000.f);
-	SetFloat(TEXT("HazardHalfExtent"), 50.f);
-	SetFloat(TEXT("AgentHalfExtent"), 25.f);
-	SetFloat(TEXT("MinClearance"), 150.f);
-	SetFloat(TEXT("HazardPenalty"), 1.f);
-	SetInt(TEXT("MaxSteps"), 300);
-	SetInt(TEXT("NumHazards"), 4);
-
-	if (IsValid(GoalActor))
-	{
-		if (FObjectPropertyBase* Prop =
-				FindFProperty<FObjectPropertyBase>(AvoidHazards->GetClass(), TEXT("GoalActor")))
-		{
-			Prop->SetObjectPropertyValue_InContainer(AvoidHazards, GoalActor);
-		}
-	}
-
-	AddInstanceComponent(AvoidHazards);
-	AvoidHazards->RegisterComponent();
 }
