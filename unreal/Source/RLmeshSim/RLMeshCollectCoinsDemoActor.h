@@ -7,10 +7,10 @@
 #include "RLMeshCollectCoinsDemoActor.generated.h"
 
 class UStaticMeshComponent;
-class UActorComponent;
+class URLMeshCollectCoinsComponent;
 
 /**
- * Visible cube that attaches URLMeshCollectCoinsComponent at BeginPlay.
+ * Visible cube with a URLMeshCollectCoinsComponent (CreateDefaultSubobject).
  */
 UCLASS()
 class RLMESHSIM_API ARLMeshCollectCoinsDemoActor : public AActor
@@ -21,11 +21,9 @@ public:
 	ARLMeshCollectCoinsDemoActor();
 
 protected:
-	virtual void BeginPlay() override;
-
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "RLMesh")
 	TObjectPtr<UStaticMeshComponent> Mesh;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "RLMesh")
-	TObjectPtr<UActorComponent> CollectCoins;
+	TObjectPtr<URLMeshCollectCoinsComponent> CollectCoins;
 };

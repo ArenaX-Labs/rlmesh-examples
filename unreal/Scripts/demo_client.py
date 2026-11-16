@@ -35,7 +35,7 @@ _SERVE_ADDR_RE = re.compile(
 _CONTROL_HINT = (
     "No environment-control server at this URL. Open RLmeshSim in the editor "
     "(demo_control_server auto-starts), or Press Play yourself and pass "
-    "--address / RLMESH_UNREAL_ADDR to suite clients."
+    "--address / RLMESH_UNREAL_ADDR to demo clients."
 )
 
 

@@ -7,10 +7,10 @@
 #include "RLMeshAvoidHazardsDemoActor.generated.h"
 
 class UStaticMeshComponent;
-class UActorComponent;
+class URLMeshAvoidHazardsComponent;
 
 /**
- * Visible cube that attaches URLMeshAvoidHazardsComponent at BeginPlay.
+ * Visible cube with a URLMeshAvoidHazardsComponent (CreateDefaultSubobject).
  */
 UCLASS()
 class RLMESHSIM_API ARLMeshAvoidHazardsDemoActor : public AActor
@@ -27,7 +27,7 @@ protected:
 	TObjectPtr<UStaticMeshComponent> Mesh;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "RLMesh")
-	TObjectPtr<UActorComponent> AvoidHazards;
+	TObjectPtr<URLMeshAvoidHazardsComponent> AvoidHazards;
 
 	/** Optional level actor used as the Avoid Hazards goal (world XY). */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RLMesh")
