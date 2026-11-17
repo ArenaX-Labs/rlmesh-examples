@@ -10,7 +10,7 @@
 #include "RLMeshCollectCoinsDemoActor.h"
 #include "RLMeshDemoArenaDemoActor.h"
 #include "RLMeshDemoControl.h"
-#include "RLMeshReachDemoActor.h"
+#include "RLMeshReachTargetAllAxisDemoActor.h"
 
 ARLMeshDemoGameMode::ARLMeshDemoGameMode()
 {
@@ -25,7 +25,7 @@ bool ARLMeshDemoGameMode::LevelAlreadyHasEnv() const
 		return false;
 	}
 
-	for (TActorIterator<ARLMeshReachDemoActor> It(World); It; ++It)
+	for (TActorIterator<ARLMeshReachTargetAllAxisDemoActor> It(World); It; ++It)
 	{
 		return true;
 	}
@@ -79,5 +79,6 @@ void ARLMeshDemoGameMode::BeginPlay()
 
 	FActorSpawnParameters Params;
 	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-	World->SpawnActor<ARLMeshReachDemoActor>(DemoSpawnLocation, FRotator::ZeroRotator, Params);
+	World->SpawnActor<ARLMeshReachTargetAllAxisDemoActor>(DemoSpawnLocation, FRotator::ZeroRotator,
+														   Params);
 }

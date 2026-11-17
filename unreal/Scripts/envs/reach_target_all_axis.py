@@ -1,4 +1,4 @@
-"""Activate the Reach Target environment on the procedural map."""
+"""Activate the Reach Target All Axis environment on the procedural map."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ MIN_DIST = 800.0
 
 
 def activate() -> None:
-    meta = registry.ENVIRONMENTS["reach_target"]
+    meta = registry.ENVIRONMENTS["reach_target_all_axis"]
     swap.ensure_map(meta["map"])
     swap.remove_other_hosts(meta["host_class"])
 
@@ -79,6 +79,6 @@ def activate() -> None:
     swap.apply_material(host, registry.MAT_AGENT)
     swap.apply_material(target, registry.MAT_GOAL)
     swap.log(
-        f"reach_target active: agent={swap.label_of(host)} target={swap.label_of(target)} "
-        f"cleared={destroyed}"
+        f"reach_target_all_axis active: agent={swap.label_of(host)} "
+        f"target={swap.label_of(target)} cleared={destroyed}"
     )

@@ -3,7 +3,7 @@
 Activate one registered env at a time (single EnvServer). Never saves the level.
 
   from envs import activate, list_environments
-  activate("reach_target")
+  activate("reach_target_all_axis")
   activate("demo_arena")
 """
 
@@ -16,12 +16,12 @@ from . import (
     chase_point,
     collect_coins,
     demo_arena,
-    reach_target,
+    reach_target_all_axis,
 )
 from .registry import ENVIRONMENTS, get_environment, list_environments
 
 _ACTIVATORS = {
-    "reach_target": reach_target.activate,
+    "reach_target_all_axis": reach_target_all_axis.activate,
     "chase_point": chase_point.activate,
     "avoid_hazards": avoid_hazards.activate,
     "collect_coins": collect_coins.activate,

@@ -8,7 +8,7 @@
 
 /**
  * On Play: ensures the optional editor env-swap HTTP helper is running, and
- * auto-spawns a Reach Target host only when the level has no RLMesh env yet.
+ * auto-spawns a Reach Target All Axis host only when the level has no RLMesh env yet.
  */
 UCLASS()
 class RLMESHSIM_API ARLMeshDemoGameMode : public AGameModeBase

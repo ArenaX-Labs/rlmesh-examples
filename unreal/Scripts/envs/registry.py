@@ -20,7 +20,7 @@ SPHERE_MESH = "/Engine/BasicShapes/Sphere.Sphere"
 
 # C++ demo host actors (each owns one URLMesh*Component / EnvServer).
 ENV_HOSTS: dict[str, str] = {
-    "reach_target": "/Script/RLmeshSim.RLMeshReachDemoActor",
+    "reach_target_all_axis": "/Script/RLmeshSim.RLMeshReachTargetAllAxisDemoActor",
     "chase_point": "/Script/RLmeshSim.RLMeshChasePointDemoActor",
     "avoid_hazards": "/Script/RLmeshSim.RLMeshAvoidHazardsDemoActor",
     "collect_coins": "/Script/RLmeshSim.RLMeshCollectCoinsDemoActor",
@@ -29,12 +29,12 @@ ENV_HOSTS: dict[str, str] = {
 
 # env_id → metadata used by the control API and activate().
 ENVIRONMENTS: dict[str, dict[str, Any]] = {
-    "reach_target": {
-        "title": "Reach Target",
-        "env_id": "Unreal-ReachTarget-v0",
+    "reach_target_all_axis": {
+        "title": "Reach Target All Axis",
+        "env_id": "Unreal-ReachTargetAllAxis-v0",
         "map": DEFAULT_MAP,
-        "host_class": ENV_HOSTS["reach_target"],
-        "description": "3D Box[3] reach toward a fixed/random target.",
+        "host_class": ENV_HOSTS["reach_target_all_axis"],
+        "description": "3D Box[3] reach toward a fixed/random target (XYZ).",
         "mode": "procedural",  # clear leftover props; ensure Agent + Target
     },
     "chase_point": {
