@@ -8,8 +8,8 @@ Example Unreal Engine **5.6** project for [RLMesh](https://github.com/ArenaX-Lab
 
 | Piece | Role |
 |-------|------|
-| Plugin (from rlmesh) | **Reach Target** + base `URLMeshEnvComponent` |
-| This game module | Chase Point, Avoid Hazards, Collect Coins, Demo Arena |
+| Plugin (from rlmesh) | **Reach Target** (1D) + base `URLMeshEnvComponent` |
+| This game module | Reach Target All Axis, Chase Point, Avoid Hazards, Collect Coins, Demo Arena |
 | Python clients | `Scripts/demos/` — plain `rlmesh.numpy.Model` + `rlmesh.run` |
 | Optional editor helper | HTTP API on `:8878` to swap environments and Press Play |
 
@@ -37,18 +37,12 @@ Example Unreal Engine **5.6** project for [RLMesh](https://github.com/ArenaX-Lab
 
 Use a Python that has the `rlmesh` package (rlmesh `.venv` recommended). Copy the Serving address from LogRLMesh after Play (or pass it via `--address` / `RLMESH_UNREAL_ADDR`).
 
-**Reach Target** (plugin component; client in rlmesh):
-
-```powershell
-python Scripts/demo_client.py ensure reach_target
-<path-to-rlmesh>\.venv\Scripts\python.exe integrations/unreal/demos/reach_target/toward_target.py "127.0.0.1:7447#<key>/env"
-```
-
-**Chase / Avoid / Collect / Demo Arena** (components + clients in this project):
+**Reach Target All Axis / Chase / Avoid / Collect / Demo Arena** (components + clients in this project):
 
 ```powershell
 # From RLmeshSim root — use the rlmesh venv python
-<path-to-rlmesh>\.venv\Scripts\python.exe Scripts/demos/chase_point/app.py --verbose --address "127.0.0.1:7447#<key>/env"
+<path-to-rlmesh>\.venv\Scripts\python.exe Scripts/demos/reach_target_all_axis/app.py --verbose --address "127.0.0.1:7447/env"
+<path-to-rlmesh>\.venv\Scripts\python.exe Scripts/demos/chase_point/app.py --verbose --address "…"
 <path-to-rlmesh>\.venv\Scripts\python.exe Scripts/demos/avoid_hazards/app.py --verbose --address "…"
 <path-to-rlmesh>\.venv\Scripts\python.exe Scripts/demos/collect_coins/app.py --verbose --address "…"
 <path-to-rlmesh>\.venv\Scripts\python.exe Scripts/demos/demo_arena/app.py --verbose --address "…"

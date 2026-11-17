@@ -216,11 +216,13 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("list", help="GET /v1/demos")
     sub.add_parser("status", help="GET /v1/status")
     load_p = sub.add_parser("load", help="POST /v1/demos/<id>/load")
-    load_p.add_argument("demo_id", help="reach_target | chase_point | demo_arena | …")
+    load_p.add_argument("demo_id", help="reach_target_all_axis | chase_point | demo_arena | …")
     sub.add_parser("play", help="POST /v1/play")
     sub.add_parser("stop", help="POST /v1/stop")
     ensure_p = sub.add_parser("ensure", help="load + play for demo_id if needed")
-    ensure_p.add_argument("demo_id", help="reach_target | chase_point | demo_arena | …")
+    ensure_p.add_argument(
+        "demo_id", help="reach_target_all_axis | chase_point | demo_arena | …"
+    )
 
     args = parser.parse_args(argv)
     base = args.base.rstrip("/")
