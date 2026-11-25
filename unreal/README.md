@@ -1,69 +1,135 @@
-# RLmeshSim
+# RLMesh Unreal Engine demos
 
-Example Unreal Engine **5.6** project for [RLMesh](https://github.com/ArenaX-Labs/rlmesh). It hosts RL envs with the RLMesh plugin and drives them from Python.
+An Unreal Engine 5.6 project that serves game worlds as [RLMesh](https://github.com/ArenaX-Labs/rlmesh) environments and drives them from Python. Press Play, run a client, and watch a policy move the blue cube.
 
-**Dependency direction:** this project depends on rlmesh. The plugin does not depend on this project.
+| Demo | Map | The policy has to | Client |
+| --- | --- | --- | --- |
+| Reach Target All Axis | `GameScene` | fly to a target in 3D | `Scripts/reach_target_all_axis.py` |
+| Demo Arena | `GameScene_Demo` | collect three coins, then the goal, around walls | `Scripts/demo_arena.py` |
+| Chase Point | add to `GameScene` | catch a goal that wanders | `Scripts/chase_point.py` |
+| Avoid Hazards | add to `GameScene` | reach a goal past hazard cubes | `Scripts/avoid_hazards.py` |
+| Collect Coins | add to `GameScene` | collect coins scattered on the floor | `Scripts/collect_coins.py` |
 
-## What you get
+## How it works
 
-| Piece | Role |
-|-------|------|
-| Plugin (from rlmesh) | **Reach Target** (1D) + base `URLMeshEnvComponent` |
-| This game module | Reach Target All Axis, Chase Point, Avoid Hazards, Collect Coins, Demo Arena |
-| Python clients | `Scripts/demos/` — plain `rlmesh.numpy.Model` + `rlmesh.run` |
-| Optional editor helper | HTTP API on `:8878` to swap environments and Press Play |
+An environment is an actor component. Subclass the plugin's `URLMeshEnvComponent`, describe the observation and action spaces, and implement reset and step; the plugin serves it while the game plays and runs `ResetEnv` and `StepEnv` on the game thread. This is Reach Target All Axis, trimmed ([full source](Source/RLmeshSim/RLMeshReachTargetAllAxisComponent.cpp)):
+
+```cpp
+rlmesh::spaces::Space URLMeshReachTargetAllAxisComponent::ObservationSpace() const
+{
+	const double Infinity = std::numeric_limits<double>::infinity();
+	return rlmesh::spaces::Box(-Infinity, Infinity, {3}); // offset to the target
+}
+
+rlmesh::spaces::Space URLMeshReachTargetAllAxisComponent::ActionSpace() const
+{
+	return rlmesh::spaces::Box(-1.0, 1.0, {3}); // a direction to move in
+}
+
+rlmesh::ResetResult URLMeshReachTargetAllAxisComponent::ResetEnv(std::optional<int64_t> Seed,
+																 const std::optional<rlmesh::InfoDict>&)
+{
+	GetOwner()->SetActorLocation(Start);
+	Target = TargetActor->GetActorLocation();
+	Steps = 0;
+	return {Observe(), {}};
+}
+
+rlmesh::StepResult URLMeshReachTargetAllAxisComponent::StepEnv(const std::optional<rlmesh::Value>& Action)
+{
+	const rlmesh::Tensor Direction = Action.value().as_tensor();
+	const float* D = reinterpret_cast<const float*>(Direction.buffer().data());
+	GetOwner()->AddActorWorldOffset(FVector(D[0], D[1], D[2]).GetSafeNormal() * StepSize);
+	++Steps;
+
+	const double Distance = FVector::Dist(GetOwner()->GetActorLocation(), Target);
+	const bool bReached = Distance <= StepSize / 2.0;
+	return {Observe(), -Distance / TargetRange, bReached, !bReached && Steps >= MaxSteps, {{"success", bReached}}};
+}
+```
+
+Any RLMesh model can then connect to the address the component serves on, `127.0.0.1:7447/env` by default. The Python client is a policy and one `rlmesh.run` call ([full source](Scripts/reach_target_all_axis.py)):
+
+```python
+import numpy as np
+import rlmesh
+from rlmesh.numpy import Model
+
+
+class TowardTarget(Model):
+    workflow_edition = "2026.10"
+
+    def predict(self, observation):
+        offset = observation  # (x, y, z) from the cube to the target
+        return (offset / max(np.linalg.norm(offset), 1e-6)).astype(np.float32)
+
+
+print(rlmesh.run(TowardTarget(), "127.0.0.1:7447/env", episodes=3))
+```
 
 ## Requirements
 
-- Unreal Engine **5.6**
-- [rlmesh](https://github.com/ArenaX-Labs/rlmesh) checkout (or matching release artifacts):
-  - Plugin: `integrations/unreal/RLMesh` + unpacked ThirdParty `rlmesh_capi`
-  - Python: `mise run setup:python` (or the checkout `.venv`)
-- Editor **Python Script Plugin** (enabled in this `.uproject`)
+- Unreal Engine 5.6 with a C++ toolchain: Visual Studio 2022 on Windows, or the clang toolchain Unreal installs on Linux.
+- The RLMesh Unreal plugin and the RLMesh C/C++ package for your platform, from the same RLMesh release as the Python package.
+- Python 3.10 or later.
+
+The plugin supports Windows (Win64) and Linux. The steps below use Windows; on Linux use `/` in paths and `python3`, and build with `Engine/Build/BatchFiles/Linux/Build.sh RLmeshSimEditor Linux Development -Project="$PWD/RLmeshSim.uproject"` from your Unreal install.
 
 ## Setup
 
-1. Clone this repo and clone/build [rlmesh](https://github.com/ArenaX-Labs/rlmesh).
-2. Install the plugin into `Plugins/RLMesh/` (copy or junction from rlmesh `integrations/unreal/RLMesh`).
-3. Unpack matching `rlmesh_capi` under `Plugins/RLMesh/Source/ThirdParty/rlmesh/` (see rlmesh `docs/unreal-local.md`).
-4. Generate project files, open, build.
-5. Optional stable Serving `#keys` (once per machine):
+1. Clone this repository and the [rlmesh](https://github.com/ArenaX-Labs/rlmesh) repository at the release you are using.
+2. Install the plugin as its [README](https://github.com/ArenaX-Labs/rlmesh/tree/main/integrations/unreal/RLMesh#install) describes: copy `integrations/unreal/RLMesh` to `Plugins/RLMesh` in this project, and unpack the RLMesh C/C++ package into `Plugins/RLMesh/Source/ThirdParty/rlmesh`. When a release has no package for your platform, build one from the rlmesh checkout as the [C API README](https://github.com/ArenaX-Labs/rlmesh/blob/main/crates/rlmesh-capi/README.md) describes (`mise run release:cxx:package`).
+3. Install the Python package of the same release:
 
-   ```bash
-   rlmesh host-identity new --out "%LOCALAPPDATA%/rlmesh/unreal_host_identity"
+   ```powershell
+   python -m pip install --pre "rlmesh[numpy]"
    ```
 
-## Run demos
+4. Right-click `RLmeshSim.uproject`, choose **Generate Visual Studio project files**, then open the project and let it build the `RLmeshSim` module (or build the `RLmeshSimEditor` target from Visual Studio).
 
-Use a Python that has the `rlmesh` package (rlmesh `.venv` recommended). Copy the Serving address from LogRLMesh after Play (or pass it via `--address` / `RLMESH_UNREAL_ADDR`).
+## Run a demo
 
-**Reach Target All Axis / Chase / Avoid / Collect / Demo Arena** (components + clients in this project):
+Each demo is the same three steps: open its map, press **Play**, and run its client from this directory. The Output Log shows `LogRLMesh: Serving ...` once the env is up. Only one env can serve on port 7447 at a time.
+
+**Reach Target All Axis.** `GameScene` opens by default.
 
 ```powershell
-# From RLmeshSim root — use the rlmesh venv python
-<path-to-rlmesh>\.venv\Scripts\python.exe Scripts/demos/reach_target_all_axis/app.py --verbose --address "127.0.0.1:7447/env"
-<path-to-rlmesh>\.venv\Scripts\python.exe Scripts/demos/chase_point/app.py --verbose --address "…"
-<path-to-rlmesh>\.venv\Scripts\python.exe Scripts/demos/avoid_hazards/app.py --verbose --address "…"
-<path-to-rlmesh>\.venv\Scripts\python.exe Scripts/demos/collect_coins/app.py --verbose --address "…"
-<path-to-rlmesh>\.venv\Scripts\python.exe Scripts/demos/demo_arena/app.py --verbose --address "…"
+python Scripts\reach_target_all_axis.py
 ```
 
-Each `app.py` calls the optional `:8878` helper unless you pass `--no-ensure` (then Press Play yourself).
+**Demo Arena.** Open `Content/GameScene_Demo`.
+
+```powershell
+python Scripts\demo_arena.py
+```
+
+**Chase Point, Avoid Hazards and Collect Coins.** These are components without a map of their own; add one to `GameScene`:
+
+1. Delete the blue `Agent` cube, which serves Reach Target All Axis.
+2. Place a cube (**Quick Add > Shapes > Cube**) and set its scale to 0.5.
+3. In its Details panel, **Add** the **RLMesh Chase Point**, **RLMesh Avoid Hazards** or **RLMesh Collect Coins** component. For Chase Point and Avoid Hazards, set **Goal Actor** to the `Goal` actor so you can see the goal; optionally set **Hazard Material** to `Red` or **Coin Material** to `Gold`.
+4. Press **Play** and run the client:
+
+   ```powershell
+   python Scripts\chase_point.py
+   python Scripts\avoid_hazards.py
+   python Scripts\collect_coins.py
+   ```
+
+Every client takes the env's address as its one argument, for an env served elsewhere (`python Scripts\chase_point.py 192.168.1.20:7447/env`). To serve to other machines, set the component's **Address** and give the editor a host identity in `RLMESH_HOST_IDENTITY`; see the [RLMesh CLI reference](https://github.com/ArenaX-Labs/rlmesh/blob/main/docs/reference/cli.md).
+
+Each step takes at least one frame, so the project caps the frame rate at 120 FPS with VSync off (`Config/DefaultEngine.ini`) and keeps the editor running at full speed while another window has focus (`Config/DefaultEditorPerProjectUserSettings.ini`).
 
 ## Layout
 
-| Path | Role |
-|------|------|
-| `Content/` | Maps, materials, prop Blueprints |
-| `Source/RLmeshSim/` | Game module: demo actors + Chase/Avoid/Collect/Demo Arena components |
-| `Scripts/demo_control_server.py` | Optional in-editor load/play HTTP API |
-| `Scripts/demo_client.py` | CLI for that API |
-| `Scripts/envs/` | Environment swap |
-| `Scripts/demos/` | Python `Model` + `rlmesh.run` clients |
-| `Plugins/RLMesh/` | From rlmesh (gitignored when junctioned) |
+| Path | Contents |
+| --- | --- |
+| `Source/RLmeshSim/RLMesh*Component.*` | One RLMesh env per demo |
+| `Source/RLmeshSim/RLMesh*DemoActor.*` | The cubes `GameScene` and `GameScene_Demo` place, each holding an env component |
+| `Source/RLmeshSim/PlayerPawn.*`, `RLMeshDemoGameMode.*` | A fly camera: hold the right mouse button to look, WASD and QE to move |
+| `Scripts/` | One Python client per demo |
+| `Content/` | Maps, materials and the coin, goal and obstacle Blueprints |
 
-## Notes
+## License
 
-- Keep one Serving env active at a time.
-- Source the plugin from rlmesh so this sample stays a consumer.
-- Licensed dual MIT / Apache-2.0. See `LICENSE-MIT` and `LICENSE-APACHE`.
+Licensed under either of [Apache License, Version 2.0](LICENSE-APACHE) or [MIT license](LICENSE-MIT) at your option, like RLMesh itself.
