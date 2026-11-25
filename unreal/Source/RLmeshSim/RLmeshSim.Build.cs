@@ -1,5 +1,3 @@
-// Copyright (c) 2026 ArenaX Labs
-
 using UnrealBuildTool;
 
 public class RLmeshSim : ModuleRules
@@ -11,25 +9,6 @@ public class RLmeshSim : ModuleRules
 		// rlmesh.hpp reports failures as C++ exceptions.
 		bEnableExceptions = true;
 
-		PublicDependencyModuleNames.AddRange(new string[]
-		{
-			"Core",
-			"CoreUObject",
-			"Engine",
-			"InputCore",
-			"RLMeshUnreal",
-		});
-
-		PrivateDependencyModuleNames.AddRange(new string[] { });
-
-		if (Target.bBuildEditor)
-		{
-			// Optional sample helper: demo_control_server.py (env swap HTTP API).
-			PrivateDependencyModuleNames.AddRange(new string[]
-			{
-				"PythonScriptPlugin",
-				"UnrealEd",
-			});
-		}
+		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "RLMeshUnreal" });
 	}
 }
