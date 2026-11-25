@@ -1,7 +1,4 @@
-// Copyright (c) 2026 ArenaX Labs
-
 using UnrealBuildTool;
-using System.Collections.Generic;
 
 public class RLmeshSimTarget : TargetRules
 {

@@ -1,18 +1,14 @@
-// Copyright (c) 2026 ArenaX Labs
-
 #pragma once
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+
 #include "RLMeshReachTargetAllAxisDemoActor.generated.h"
 
 class UStaticMeshComponent;
 class URLMeshReachTargetAllAxisComponent;
 
-/**
- * Visible cube with a URLMeshReachTargetAllAxisComponent (CreateDefaultSubobject).
- * Serves Unreal-ReachTargetAllAxis-v0.
- */
+// TODO: GameScene places this actor; once the map holds a cube with the component instead, delete this class.
 UCLASS()
 class RLMESHSIM_API ARLMeshReachTargetAllAxisDemoActor : public AActor
 {
@@ -24,16 +20,13 @@ public:
 protected:
 	virtual void BeginPlay() override;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "RLMesh")
+	UPROPERTY(VisibleAnywhere, Category = "RLMesh")
 	TObjectPtr<UStaticMeshComponent> Mesh;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "RLMesh")
+	UPROPERTY(VisibleAnywhere, Category = "RLMesh")
 	TObjectPtr<URLMeshReachTargetAllAxisComponent> ReachTarget;
 
-	/**
-	 * Optional level actor used as the goal (world XYZ).
-	 * Copied onto URLMeshReachTargetAllAxisComponent::TargetActor at BeginPlay.
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RLMesh")
+	/** Copied to the component's TargetActor, where GameScene saved it. */
+	UPROPERTY(EditAnywhere, Category = "RLMesh")
 	TObjectPtr<AActor> TargetActor;
 };

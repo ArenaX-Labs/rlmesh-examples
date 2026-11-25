@@ -1,5 +1,3 @@
-// Copyright (c) 2026 ArenaX Labs
-
 #pragma once
 
 #include "CoreMinimal.h"
@@ -9,16 +7,8 @@
 #include "RLMeshChasePointComponent.generated.h"
 
 /**
- * Example env: slide the owning actor on the XY plane toward a moving 2D goal.
- *
- * Each reset puts the actor back where play began (Z locked thereafter). If
- * GoalActor is set, the goal starts at that actor's world XY; otherwise a goal
- * offset is picked in [-GoalRange, GoalRange]^2. For the first GoalMoveSteps
- * of the episode the goal wanders randomly on the floor (not toward the agent,
- * clamped inside GoalWanderRadius of its home). Then it stops so the agent can
- * catch up. Observation is the remaining XY gap (Box[2]). Action is
- * Box([-1, 1]^2). Reward is minus XY distance over GoalRange; terminates near
- * the goal; truncates after MaxSteps.
+ * Catch a goal that wanders for the first GoalMoveSteps steps, moving the owning actor on the XY plane.
+ * Observation: the XY offset to the goal, Box(2). Action: a direction, Box([-1, 1], 2).
  */
 UCLASS(ClassGroup = (RLmeshSim), meta = (BlueprintSpawnableComponent))
 class RLMESHSIM_API URLMeshChasePointComponent : public URLMeshEnvComponent
@@ -28,40 +18,27 @@ class RLMESHSIM_API URLMeshChasePointComponent : public URLMeshEnvComponent
 public:
 	URLMeshChasePointComponent();
 
-	/** Distance one step moves the agent on the plane, in units. */
 	UPROPERTY(EditAnywhere, Category = "RLMesh", meta = (ClampMin = "1"))
 	float StepSize = 50.f;
 
-	/** Farthest a random goal is placed from the start (XY). Also scales reward. */
+	/** Farthest a random goal is placed from the start. */
 	UPROPERTY(EditAnywhere, Category = "RLMesh", meta = (ClampMin = "1"))
 	float GoalRange = 1000.f;
 
-	/** Steps before an episode truncates. */
 	UPROPERTY(EditAnywhere, Category = "RLMesh", meta = (ClampMin = "1"))
 	int32 MaxSteps = 300;
 
-	/**
-	 * How many env steps the goal keeps wandering after reset.
-	 * After this, the goal freezes for the rest of the episode.
-	 */
 	UPROPERTY(EditAnywhere, Category = "RLMesh", meta = (ClampMin = "0"))
 	int32 GoalMoveSteps = 40;
 
-	/** Distance the goal moves on each wandering step, in units. */
 	UPROPERTY(EditAnywhere, Category = "RLMesh", meta = (ClampMin = "0"))
 	float GoalStepSize = 35.f;
 
-	/**
-	 * Goal stays inside this XY radius of its reset home (on the floor plane).
-	 * Prevents walking off the playable disk.
-	 */
+	/** How far the goal may wander from where it started the episode. */
 	UPROPERTY(EditAnywhere, Category = "RLMesh", meta = (ClampMin = "1"))
 	float GoalWanderRadius = 600.f;
 
-	/**
-	 * Optional level actor used as the XY goal (e.g. a Goal sphere).
-	 * When set, reset uses this actor's world XY and moves it while wandering.
-	 */
+	/** Shows the goal; when set, every episode's goal starts where this actor was placed. */
 	UPROPERTY(EditAnywhere, Category = "RLMesh")
 	TObjectPtr<AActor> GoalActor;
 
@@ -75,22 +52,13 @@ protected:
 	virtual rlmesh::StepResult StepEnv(const std::optional<rlmesh::Value>& Action) override;
 
 private:
-	FVector2D RemainingXY() const;
-	double DistanceXY() const;
+	FVector2D GoalOffset() const;
+	void MoveGoal(const FVector2D& NewGoal);
 	rlmesh::Value Observe() const;
-	rlmesh::InfoDict MakeInfo() const;
-	void LockOwnerZ() const;
-	void SyncGoalActor() const;
-	void WanderGoal();
 
 	FVector Start = FVector::ZeroVector;
-	/** Goal as world-space XY offset from Start (Z ignored). */
-	FVector2D GoalOffset = FVector2D::ZeroVector;
-	/** XY home (world) used to clamp wandering for this episode. */
 	FVector2D GoalHome = FVector2D::ZeroVector;
-	/** Fixed spawn offset when GoalActor is set (so resets don't drift). */
-	FVector2D GoalSpawnOffset = FVector2D::ZeroVector;
-	bool bHaveGoalSpawn = false;
+	FVector2D Goal = FVector2D::ZeroVector;
 	int32 Steps = 0;
 	FRandomStream Random;
 };
