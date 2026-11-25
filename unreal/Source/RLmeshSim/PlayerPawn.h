@@ -1,5 +1,3 @@
-// Copyright (c) 2026 ArenaX Labs
-
 #pragma once
 
 #include "CoreMinimal.h"
@@ -25,7 +23,6 @@ public:
 	virtual void Tick(float DeltaTime) override;
 	virtual void PossessedBy(AController* NewController) override;
 	virtual void UnPossessed() override;
-	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
 
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")

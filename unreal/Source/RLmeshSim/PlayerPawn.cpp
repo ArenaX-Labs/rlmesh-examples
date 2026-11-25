@@ -1,5 +1,3 @@
-// Copyright (c) 2026 ArenaX Labs
-
 #include "PlayerPawn.h"
 
 #include "Camera/CameraComponent.h"
@@ -63,12 +61,6 @@ void APlayerPawn::UnPossessed()
 	Super::UnPossessed();
 }
 
-void APlayerPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
-{
-	Super::SetupPlayerInputComponent(PlayerInputComponent);
-	// Chorded editor-style input is polled in Tick.
-}
-
 void APlayerPawn::ApplyEditorStyleInput(float DeltaTime)
 {
 	APlayerController* PC = Cast<APlayerController>(Controller);
@@ -124,10 +116,8 @@ void APlayerPawn::ApplyEditorStyleInput(float DeltaTime)
 			LocalMove.Normalize();
 			const FRotator ControlRot = GetControlRotation();
 			const FRotationMatrix RotMatrix(ControlRot);
-			const FVector WorldMove =
-				RotMatrix.GetScaledAxis(EAxis::X) * LocalMove.X +
-				RotMatrix.GetScaledAxis(EAxis::Y) * LocalMove.Y +
-				FVector::UpVector * LocalMove.Z;
+			const FVector WorldMove = RotMatrix.GetScaledAxis(EAxis::X) * LocalMove.X +
+									  RotMatrix.GetScaledAxis(EAxis::Y) * LocalMove.Y + FVector::UpVector * LocalMove.Z;
 
 			AddMovementInput(WorldMove, 1.f);
 			if (Movement)
