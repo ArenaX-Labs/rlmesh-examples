@@ -2,7 +2,7 @@
 	"FileVersion": 3,
 	"EngineAssociation": "5.6",
 	"Category": "Samples",
-	"Description": "Example Unreal project for RLMesh: plugin env hosts, Demo Arena showcase, and optional editor helpers.",
+	"Description": "Unreal Engine demos of RLMesh: game worlds served as RLMesh environments and driven from Python.",
 	"Modules": [
 		{
 			"Name": "RLmeshSim",
@@ -17,10 +17,6 @@
 			"TargetAllowList": [
 				"Editor"
 			]
-		},
-		{
-			"Name": "PythonScriptPlugin",
-			"Enabled": true
 		},
 		{
 			"Name": "RLMesh",
