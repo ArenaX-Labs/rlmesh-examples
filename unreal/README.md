@@ -26,19 +26,19 @@ rlmesh::spaces::Space URLMeshReachTargetAllAxisComponent::ActionSpace() const
 	return rlmesh::spaces::Box(-1.0, 1.0, {3}); // a direction to move in
 }
 
-rlmesh::ResetResult URLMeshReachTargetAllAxisComponent::ResetEnv(std::optional<int64_t> Seed,
+rlmesh::ResetResult URLMeshReachTargetAllAxisComponent::ResetEnv(std::optional<int64_t>,
 																 const std::optional<rlmesh::InfoDict>&)
 {
 	GetOwner()->SetActorLocation(Start);
-	Target = TargetActor->GetActorLocation();
+	Target = Start + FVector(Random.FRandRange(-TargetRange, TargetRange), Random.FRandRange(-TargetRange, TargetRange),
+							 Random.FRandRange(-TargetRange, TargetRange));
 	Steps = 0;
 	return {Observe(), {}};
 }
 
 rlmesh::StepResult URLMeshReachTargetAllAxisComponent::StepEnv(const std::optional<rlmesh::Value>& Action)
 {
-	const rlmesh::Tensor Direction = Action.value().as_tensor();
-	const float* D = reinterpret_cast<const float*>(Direction.buffer().data());
+	const std::vector<float> D = rlmesh::ext::to_vector<float>(Action->as_tensor());
 	GetOwner()->AddActorWorldOffset(FVector(D[0], D[1], D[2]).GetSafeNormal() * StepSize);
 	++Steps;
 
@@ -46,7 +46,16 @@ rlmesh::StepResult URLMeshReachTargetAllAxisComponent::StepEnv(const std::option
 	const bool bReached = Distance <= StepSize / 2.0;
 	return {Observe(), -Distance / TargetRange, bReached, !bReached && Steps >= MaxSteps, {{"success", bReached}}};
 }
+
+rlmesh::Value URLMeshReachTargetAllAxisComponent::Observe() const
+{
+	const FVector Offset = Target - GetOwner()->GetActorLocation();
+	return rlmesh::ext::from_vector<float>(
+		{static_cast<float>(Offset.X), static_cast<float>(Offset.Y), static_cast<float>(Offset.Z)}, {3});
+}
 ```
+
+The plugin does the rest: it makes the actor Movable, reseeds `Random` from the client's seed, and refuses an action that does not fit `ActionSpace()` before `StepEnv` runs, so the env holds only game logic.
 
 Any RLMesh model can then connect to the address the component serves on, `127.0.0.1:7447/env` by default. The Python client is a policy and one `rlmesh.run` call ([full source](Scripts/reach_target_all_axis.py)):
 
@@ -57,8 +66,6 @@ from rlmesh.numpy import Model
 
 
 class TowardTarget(Model):
-    workflow_edition = "2026.10"
-
     def predict(self, observation):
         offset = observation  # (x, y, z) from the cube to the target
         return (offset / max(np.linalg.norm(offset), 1e-6)).astype(np.float32)
@@ -71,6 +78,7 @@ print(rlmesh.run(TowardTarget(), "127.0.0.1:7447/env", episodes=3))
 
 - Unreal Engine 5.6 with a C++ toolchain: Visual Studio 2022 on Windows, or the clang toolchain Unreal installs on Linux.
 - The RLMesh Unreal plugin and the RLMesh C/C++ package for your platform, from the same RLMesh release as the Python package.
+- Until the next RLMesh release, an rlmesh checkout with the plugin changes of [ArenaX-Labs/rlmesh#115](https://github.com/ArenaX-Labs/rlmesh/pull/115) and the C++ tensor helpers of [ArenaX-Labs/rlmesh#145](https://github.com/ArenaX-Labs/rlmesh/pull/145), with the C/C++ package built from it (`mise run release:cxx:package`).
 - Python 3.10 or later.
 
 The plugin supports Windows (Win64) and Linux. The steps below use Windows; on Linux use `/` in paths and `python3`, and build with `Engine/Build/BatchFiles/Linux/Build.sh RLmeshSimEditor Linux Development -Project="$PWD/RLmeshSim.uproject"` from your Unreal install.
