@@ -55,7 +55,7 @@ rlmesh::Value URLMeshReachTargetAllAxisComponent::Observe() const
 }
 ```
 
-The plugin does the rest: it makes the actor Movable, reseeds `Random` from the client's seed, and refuses an action that does not fit `ActionSpace()` before `StepEnv` runs, so the env holds only game logic.
+The plugin does the rest: it makes the actor Movable, reseeds `Random` from the client's seed, and refuses an action whose dtype or shape does not fit `ActionSpace()` before `StepEnv` runs (a `Box` value outside its bounds still arrives, with a warning, by default), so the env holds only game logic.
 
 Any RLMesh model can then connect to the address the component serves on, `127.0.0.1:7447/env` by default. The Python client is a policy and one `rlmesh.run` call ([full source](Scripts/reach_target_all_axis.py)):
 
