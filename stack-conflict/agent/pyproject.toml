@@ -1,0 +1,8 @@
+[project]
+name = "stack-conflict-agent"
+version = "0.0.0"
+requires-python = ">=3.11"
+dependencies = ["rlmesh[numpy]==0.2.0a2", "stable-baselines3>=2.7", "gymnasium[mujoco]>=1.2"]
+
+[tool.uv]
+package = false

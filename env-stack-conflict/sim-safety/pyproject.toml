@@ -1,8 +1,0 @@
-[project]
-name = "rlmesh-env-stack-conflict-sim-safety"
-version = "0.0.0"
-# safety-gymnasium==1.0.0 itself pins gymnasium==0.28.1 and mujoco==2.3.3, and
-# its pygame==2.1.0 dep forces Python 3.10. These pins cannot coexist with the
-# sim-modern venv
-requires-python = "==3.10.*"
-dependencies = ["safety-gymnasium==1.0.0", "rlmesh==0.1.0", "numpy"]
