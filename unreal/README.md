@@ -3,7 +3,7 @@
 An Unreal Engine 5.6 project whose game worlds are RLMesh envs: each demo is an actor component the
 RLMesh plugin serves while the game plays, driven by a Python policy.
 
-<!-- TODO: record media/demo-arena.gif (Demo Arena: the blue cube collecting the coins, then the goal) on a Windows UE 5.6 machine and embed it here. -->
+![Demo Arena: the blue cube collects the coins, then reaches the goal](media/demo-arena.webp)
 
 ## Run it
 
