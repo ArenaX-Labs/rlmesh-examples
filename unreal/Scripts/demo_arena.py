@@ -53,11 +53,7 @@ class ArenaRunner(Model):
                 toward = float(np.dot(direction, unit(obstacle)))
                 if 1e-6 < distance < AVOID_RADIUS and toward > 0.3:
                     risk += toward * (AVOID_RADIUS - distance) / AVOID_RADIUS * 120.0
-            return (
-                clearance(direction, walls)
-                + 80.0 * float(np.dot(direction, pull))
-                - risk
-            )
+            return clearance(direction, walls) + 80.0 * float(np.dot(direction, pull)) - risk
 
         left = np.array([-normal[1], normal[0]])
         return left if score(left) >= score(-left) else -left
@@ -69,10 +65,7 @@ class ArenaRunner(Model):
         distance = float(np.linalg.norm(target))
         if distance < 1e-6:
             return np.zeros(2, dtype=np.float32)
-        if (
-            self.last_distance is not None
-            and abs(distance - self.last_distance) > 400.0
-        ):
+        if self.last_distance is not None and abs(distance - self.last_distance) > 400.0:
             self.hug = None  # a new target: the wall being followed no longer matters
             self.hug_steps = 0
             self.open_steps = 0
@@ -103,22 +96,13 @@ class ArenaRunner(Model):
         else:
             self.open_steps = 0
             blocking = [
-                i
-                for i in range(len(walls))
-                if walls[i] < CLEAR and np.dot(rays[i], pull) >= 0.15
+                i for i in range(len(walls)) if walls[i] < CLEAR and np.dot(rays[i], pull) >= 0.15
             ]
             normal = rays[
-                min(blocking, key=lambda i: walls[i])
-                if blocking
-                else int(np.argmin(walls))
+                min(blocking, key=lambda i: walls[i]) if blocking else int(np.argmin(walls))
             ]
             tangent = self.tangent(normal, pull, walls, obstacles)
-            if (
-                distance < 200.0
-                or ahead < 45.0
-                or self.hug is None
-                or self.hug_steps >= 50
-            ):
+            if distance < 200.0 or ahead < 45.0 or self.hug is None or self.hug_steps >= 50:
                 self.hug, self.hug_steps = tangent, 0
             elif np.dot(self.hug, tangent) < 0.0:
                 if clearance(self.hug, walls) < CLEAR * 0.55:
@@ -141,11 +125,7 @@ class ArenaRunner(Model):
             toward = float(np.dot(unit(choice), unit(obstacle)))
             if 1e-6 < gap <= AVOID_RADIUS and toward > 0.35:
                 choice = (
-                    choice
-                    - unit(obstacle)
-                    * (1.0 + toward)
-                    * (AVOID_RADIUS - gap)
-                    / AVOID_RADIUS
+                    choice - unit(obstacle) * (1.0 + toward) * (AVOID_RADIUS - gap) / AVOID_RADIUS
                 )
         if np.linalg.norm(choice) < 0.15:
             choice = pull
