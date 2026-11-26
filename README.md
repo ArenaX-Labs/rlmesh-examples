@@ -6,8 +6,6 @@ C++ physics engine and Unreal, and each one shows the few lines of RLMesh it tak
 
 ## Gallery
 
-<!-- TODO: record media for the Isaac Sim pick-and-place tile on a GPU machine and a Wordle terminal capture for llm-agent, then add them below. -->
-
 <table>
 <tr>
 <td width="33%" valign="top">
@@ -19,6 +17,7 @@ C++ physics engine and Unreal, and each one shows the few lines of RLMesh it tak
 <a href="python/libero/"><b>LIBERO</b></a>: a non-Gymnasium manipulation benchmark served with cameras, state and an instruction for any VLA.
 </td>
 <td width="33%" valign="top">
+<a href="python/isaacsim/ur10e-pick-place/"><img src="python/isaacsim/ur10e-pick-place/media/pick-place.webp" alt="An Isaac Sim UR10e placing a red cube on a green target"></a><br>
 <a href="python/isaacsim/ur10e-pick-place/"><b>Isaac Sim pick and place</b></a>: a UR10e grasps a cube while RLMesh converts camera, pose and gripper conventions between the policy and the simulator.
 </td>
 </tr>
@@ -32,6 +31,7 @@ C++ physics engine and Unreal, and each one shows the few lines of RLMesh it tak
 <a href="unreal/"><b>Unreal demo arena</b></a>: Unreal Engine game worlds as envs, each an actor component a Python policy drives.
 </td>
 <td width="33%" valign="top">
+<a href="python/llm-agent/"><img src="python/llm-agent/media/wordle.webp" alt="Claude Sonnet 5.5 solving two Wordle games"></a><br>
 <a href="python/llm-agent/"><b>LLM agent plays Wordle</b></a>: an LLM harness on Prime Environments Hub tasks, from Wordle to a simulated customer.
 </td>
 </tr>

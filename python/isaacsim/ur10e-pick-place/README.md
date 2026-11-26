@@ -4,7 +4,7 @@ A UR10e with a Robotiq 2F-140 gripper picks up a cube and places it on a target 
 driven by a policy whose camera, pose and gripper conventions differ from the simulator's. RLMesh
 converts between them; neither side has adapter code.
 
-<!-- TODO: record media/pick-place.gif (the camera view of one successful episode, from --record) on an RTX machine and embed it here. -->
+![The UR10e's camera while it picks up the red cube and places it on the green target](media/pick-place.webp)
 
 ## Run it
 

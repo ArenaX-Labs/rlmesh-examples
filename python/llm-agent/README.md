@@ -5,6 +5,8 @@ An LLM agent harness playing
 tool use, a simulated customer) through RLMesh: the harness is the model, the task is the env, and
 one step is one assistant message.
 
+![Claude Sonnet 5.5 solving two Wordle games in three guesses each, drawn from the run's transcripts](media/wordle.webp)
+
 ## Run it
 
 With Ollama and the env venvs from [Needs](#needs), serve Wordle and let a local model play it:
@@ -61,7 +63,9 @@ and [`run.py`](run.py) is `LLMHarness(...).run(args.address, seeds=list(range(ar
 ## Needs
 
 - CPU and an OpenAI-compatible LLM server. The harness reads `OPENAI_BASE_URL` (default Ollama at
-  `http://localhost:11434/v1`) and `OPENAI_API_KEY`:
+  `http://localhost:11434/v1`) and `OPENAI_API_KEY`; for Claude, set `OPENAI_BASE_URL` to
+  `https://api.anthropic.com/v1/`, your Anthropic key as `OPENAI_API_KEY`, and pass
+  `--model claude-sonnet-5-5`:
 
   ```bash
   ollama pull qwen3:4b && ollama serve    # gemma3:4b for color-codeword's images
