@@ -33,8 +33,6 @@ def nearest_target(goal, coins):
 
 
 class ArenaRunner(Model):
-    workflow_edition = "2026.10"
-
     def __init__(self):
         super().__init__()
         self.on_episode_end()

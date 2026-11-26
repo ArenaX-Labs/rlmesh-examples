@@ -8,8 +8,6 @@ from rlmesh.numpy import Model
 
 
 class TowardTarget(Model):
-    workflow_edition = "2026.10"
-
     def predict(self, observation):
         offset = observation  # (x, y, z) from the cube to the target
         return (offset / max(np.linalg.norm(offset), 1e-6)).astype(np.float32)

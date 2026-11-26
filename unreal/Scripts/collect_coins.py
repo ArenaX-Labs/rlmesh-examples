@@ -8,8 +8,6 @@ from rlmesh.numpy import Model
 
 
 class NearestCoin(Model):
-    workflow_edition = "2026.10"
-
     def predict(self, observation):
         offset = observation["nearest_coin"]
         return (offset / max(np.linalg.norm(offset), 1e-6)).astype(np.float32)

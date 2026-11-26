@@ -15,8 +15,6 @@ def unit(vector):
 
 
 class AvoidHazards(Model):
-    workflow_edition = "2026.10"
-
     def predict(self, observation):
         push = np.zeros(2)
         for hazard in observation["hazards"]:  # (x, y) from the cube to each hazard
