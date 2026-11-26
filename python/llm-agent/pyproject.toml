@@ -3,7 +3,7 @@ name = "llm-agent"
 version = "0.0.0"
 requires-python = ">=3.11"
 # The harness side; each env server gets its own venv from requirements-v0.txt or requirements-v1.txt.
-dependencies = ["rlmesh==0.2.0a2", "openai"]
+dependencies = ["rlmesh==0.2.0a2", "openai", "anthropic"]
 
 [tool.uv]
 package = false

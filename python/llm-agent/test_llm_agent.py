@@ -553,6 +553,40 @@ def test_predict_logs_redacted_images_but_sends_them(
     assert "<redacted>" in record["error"]
 
 
+def test_anthropic_turns_replay_native_blocks_and_merge_tool_results(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.syspath_prepend(str(HERE))
+    from harness import _anthropic_messages
+
+    native = [
+        {"type": "thinking", "thinking": "plan", "signature": "sig"},
+        {"type": "tool_use", "id": "t1", "name": "look", "input": {}},
+    ]
+    call = {"id": "t2", "type": "function", "function": {"name": "move", "arguments": '{"x": 1}'}}
+    system, turns = _anthropic_messages(
+        [
+            {"role": "system", "content": "rules"},
+            {"role": "user", "content": "go"},
+            {"role": "assistant", "content": "", "anthropic_content": native},
+            {"role": "tool", "tool_call_id": "t1", "content": "dark"},
+            {"role": "assistant", "content": "moving", "tool_calls": [call]},
+            {"role": "tool", "tool_call_id": "t2", "content": "ok"},
+            {"role": "tool", "tool_call_id": "t3", "content": "also"},
+        ]
+    )
+    assert system == "rules"
+    assert [turn["role"] for turn in turns] == ["user", "assistant", "user", "assistant", "user"]
+    assert turns[1]["content"] == native
+    assert turns[3]["content"][1] == {
+        "type": "tool_use",
+        "id": "t2",
+        "name": "move",
+        "input": {"x": 1},
+    }
+    assert [block["tool_use_id"] for block in turns[4]["content"]] == ["t2", "t3"]
+
+
 def test_tictactoe_scores_both_seats(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("RLMESH_OUTPUT_DIR", str(tmp_path))
     monkeypatch.syspath_prepend(str(HERE))

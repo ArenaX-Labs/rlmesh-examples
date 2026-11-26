@@ -23,7 +23,6 @@ ENV ENV_ID=${ENV_ID} \
     MAX_TURNS=${MAX_TURNS} \
     HOME=/tmp \
     RLMESH_OUTPUT_DIR=/rlmesh/output/env \
-    RLMESH_ADDRESS=0.0.0.0:7447 \
     RLMESH_NAME=env \
     RLMESH_READY_FILE=/tmp/rlmesh-ready.json \
     NLTK_DATA=/opt/nltk_data \
