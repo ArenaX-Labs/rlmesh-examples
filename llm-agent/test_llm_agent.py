@@ -6,7 +6,7 @@ import re
 import sys
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
-from typing import Any
+from typing import Any, ClassVar
 
 import pytest
 
@@ -88,11 +88,7 @@ class _FakeEnv:
         return {**state, "metrics": {"correct_answer": 1.0}, "stop_condition": "done"}
 
 
-def test_v0_bridge_turns_reset_and_close(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest
-) -> None:
-    monkeypatch.setenv("RLMESH_OUTPUT_DIR", str(tmp_path))
-    monkeypatch.syspath_prepend(str(HERE))
+def _stub_verifiers_v0(monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest) -> None:
     verifiers = ModuleType("verifiers")
     verifiers.__dict__.update(
         Client=type("Client", (), {"__init__": lambda self, config: None}),
@@ -108,6 +104,14 @@ def test_v0_bridge_turns_reset_and_close(
     monkeypatch.setitem(sys.modules, "verifiers.types", types)
     monkeypatch.delitem(sys.modules, "serve_v0", raising=False)
     request.addfinalizer(lambda: sys.modules.pop("serve_v0", None))
+
+
+def test_v0_bridge_turns_reset_and_close(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest
+) -> None:
+    monkeypatch.setenv("RLMESH_OUTPUT_DIR", str(tmp_path))
+    monkeypatch.syspath_prepend(str(HERE))
+    _stub_verifiers_v0(monkeypatch, request)
     from serve_v0 import EnvironmentEnv
 
     env = EnvironmentEnv("fake")
@@ -226,6 +230,18 @@ class _FakeV1Env:
         return SimpleNamespace(traces=[trace], errors=self.episode_errors, is_timeout=False)
 
 
+class _FakeTaskset:
+    loads: ClassVar[list[str]] = []
+
+    def __init__(self, config: Any) -> None:
+        self.id = config.id
+
+    def load(self) -> list[Any]:
+        self.loads.append(self.id)
+        data = SimpleNamespace(name="q0", prompt="2 + 2?", system_prompt=None)
+        return [SimpleNamespace(data=data)]
+
+
 def _stub_verifiers_v1(monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest) -> None:
     v1 = ModuleType("verifiers.v1")
     v1.__dict__.update(
@@ -235,6 +251,8 @@ def _stub_verifiers_v1(monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureR
         load_environment=_FakeV1Env,
         ModelContext=SimpleNamespace,
         EvalClientConfig=SimpleNamespace,
+        TasksetConfig=SimpleNamespace,
+        load_taskset=_FakeTaskset,
     )
     interception = ModuleType("verifiers.v1.interception")
     server = ModuleType("verifiers.v1.interception.server")
@@ -325,6 +343,131 @@ def test_v1_env_bridge_max_steps_truncates(
     _, _, done, truncated, info = env.step(json.dumps({"content": "hi"}))
     assert (done, truncated, info["stop_condition"]) == (False, True, "tau2_max_steps")
     env.close()
+
+
+def test_v1_envs_build_from_env_vars_and_load_on_first_reset(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest
+) -> None:
+    monkeypatch.setenv("RLMESH_OUTPUT_DIR", str(tmp_path))
+    monkeypatch.syspath_prepend(str(HERE))
+    _stub_verifiers_v1(monkeypatch, request)
+    monkeypatch.setattr(_FakeTaskset, "loads", [])
+    loads: list[Any] = []
+    v1 = sys.modules["verifiers.v1"]
+    monkeypatch.setattr(
+        v1,
+        "load_environment",
+        lambda config: loads.append(config) or _FakeV1Env(config),
+    )
+    from serve_v1 import TasksetEnv, V1EnvEnv
+
+    monkeypatch.delenv("TASKSET", raising=False)
+    assert TasksetEnv().taskset == "primeintellect/math500"
+    monkeypatch.setenv("TASKSET", "primeintellect/gpqa")
+    tasks = TasksetEnv()
+    assert (tasks.taskset, _FakeTaskset.loads) == ("primeintellect/gpqa", [])
+    for _ in range(2):
+        obs, _ = tasks.reset(seed=0)
+        assert json.loads(obs)["messages"] == [{"role": "user", "content": "2 + 2?"}]
+    assert _FakeTaskset.loads == ["primeintellect/gpqa"]
+
+    monkeypatch.setenv("ENV_ID", "tau2")
+    monkeypatch.setenv("DOMAIN", "airline")
+    monkeypatch.setenv("MAX_STEPS", "3")
+    env = V1EnvEnv()
+    assert (env.env_id, env.domain, env.max_steps, env.env, loads) == (
+        "tau2",
+        "airline",
+        3,
+        None,
+        [],
+    )
+    env.reset(seed=0)
+    env.reset(seed=0)
+    assert len(loads) == 1 and loads[0].taskset.domain == "airline"
+    env.close()
+
+    monkeypatch.setenv("MAX_STEPS", "0")
+    with pytest.raises(ValueError, match="at least 1"):
+        V1EnvEnv()
+    monkeypatch.delenv("ENV_ID")
+    monkeypatch.delenv("MAX_STEPS")
+    unset = V1EnvEnv()
+    with pytest.raises(ValueError, match="set ENV_ID"):
+        unset.reset(seed=0)
+    unset.close()
+
+
+def test_v0_env_builds_from_env_vars_and_flags_override_them(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest
+) -> None:
+    monkeypatch.setenv("RLMESH_OUTPUT_DIR", str(tmp_path))
+    monkeypatch.syspath_prepend(str(HERE))
+    _stub_verifiers_v0(monkeypatch, request)
+    loads: list[str] = []
+    verifiers = sys.modules["verifiers"]
+    monkeypatch.setattr(
+        verifiers,
+        "load_environment",
+        lambda env_id: loads.append(env_id) or _FakeEnv("ok"),
+    )
+    import serve_v0
+
+    monkeypatch.delenv("ENV_ID", raising=False)
+    monkeypatch.delenv("MAX_TURNS", raising=False)
+    assert serve_v0.EnvironmentEnv().env_id == "wordle"
+    monkeypatch.setenv("ENV_ID", "fake")
+    monkeypatch.setenv("MAX_TURNS", "5")
+    env = serve_v0.EnvironmentEnv()
+    assert (env.env_id, env.max_turns, env.env, loads) == ("fake", 5, None, [])
+    env.reset(seed=0)
+    env.reset(seed=0)
+    assert loads == ["fake"] and env.env.max_turns == 5
+    env.close()
+
+    served: list[Any] = []
+    monkeypatch.setattr(serve_v0, "serve", lambda env, address: served.append(env))
+    monkeypatch.setattr(sys, "argv", ["serve_v0.py", "--env", "flagged"])
+    serve_v0.main()
+    assert (served[0].env_id, served[0].max_turns) == ("flagged", 5)
+    served[0].close()
+    monkeypatch.setattr(sys, "argv", ["serve_v0.py", "--max-turns", "2"])
+    serve_v0.main()
+    assert (served[1].env_id, served[1].max_turns) == ("fake", 2)
+    served[1].close()
+
+
+def test_probe_random_text_is_answered_without_the_llm(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("RLMESH_OUTPUT_DIR", str(tmp_path))
+    monkeypatch.syspath_prepend(str(HERE))
+    from chat_env import AdditionTask
+    from harness import LLMHarness
+
+    env = AdditionTask()
+    env.reset(seed=0)
+    for action in ("\x00zq\ufffd", "[1, 2]", "42"):
+        env.reset(seed=0)
+        _, reward, done, _, info = env.step(action)
+        assert (reward, done, info["is_success"]) == (0.0, True, False)
+
+    def chat(messages: Any, tools: Any) -> tuple[dict[str, Any], None]:
+        raise AssertionError("the LLM must not be called")
+
+    harness = LLMHarness(chat=chat)
+    context: Any = {
+        "episode_id": "e",
+        "episode_seed": 0,
+        "predict_index": 0,
+        "predict_seed": 0,
+        "state": {},
+    }
+    assert json.loads(harness.predict("\x00zq", context)) == {
+        "role": "assistant",
+        "content": "",
+    }
+    assert json.loads(harness.predict("[1]", context))["content"] == ""
 
 
 def test_transcript_redacts_image_data_urls(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -438,3 +581,161 @@ def test_tictactoe_scores_both_seats(tmp_path: Path, monkeypatch: pytest.MonkeyP
 
     _, info = play("1", "2", "3", "5", "4", "6", "8", "7", "9")
     assert info["rewards"] == {"X": 0.0, "O": 0.0} and info["winner"] == "draw"
+
+
+def test_make_returns_an_independent_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("RLMESH_OUTPUT_DIR", str(tmp_path))
+    monkeypatch.syspath_prepend(str(HERE))
+    from chat_env import AdditionTask
+
+    factory = AdditionTask()
+    a, b = factory.make(), factory.make()
+    assert type(a) is AdditionTask and len({id(factory), id(a), id(b)}) == 3
+    a.reset(seed=0)
+    b.reset(seed=4)
+    a.reset(seed=1)
+    assert (a.answer, b.answer, b.task_id) == ("6", "9", "addition-4")
+
+
+def test_v1_env_serves_one_lane_per_process(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest
+) -> None:
+    monkeypatch.setenv("RLMESH_OUTPUT_DIR", str(tmp_path))
+    monkeypatch.syspath_prepend(str(HERE))
+    _stub_verifiers_v1(monkeypatch, request)
+    from serve_v1 import V1EnvEnv
+
+    first, second = V1EnvEnv("tau2"), V1EnvEnv("tau2")
+    first.reset(seed=0)
+    with pytest.raises(RuntimeError, match="RLMESH_NUM_ENVS=1"):
+        second.reset(seed=0)
+    assert second.env is None
+    first.close()
+    second.reset(seed=0)
+    second.close()
+
+
+def test_failed_first_load_is_retried_on_the_next_reset(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest
+) -> None:
+    monkeypatch.setenv("RLMESH_OUTPUT_DIR", str(tmp_path))
+    monkeypatch.syspath_prepend(str(HERE))
+    _stub_verifiers_v0(monkeypatch, request)
+    failures = [ValueError("hub down")]
+
+    def flaky(make: Any) -> Any:
+        def load(*args: Any) -> Any:
+            env = make(*args)
+            if failures:
+                raise failures.pop()
+            return env
+
+        return load
+
+    verifiers = sys.modules["verifiers"]
+    monkeypatch.setattr(verifiers, "load_environment", flaky(lambda _: _FakeEnv("ok")))
+    from serve_v0 import EnvironmentEnv
+
+    v0 = EnvironmentEnv("fake")
+    with pytest.raises(ValueError, match="hub down"):
+        v0.reset(seed=0)
+    assert (v0.env, v0.dataset) == (None, None)
+    obs, _ = v0.reset(seed=0)
+    assert json.loads(obs)["messages"][-1]["content"] == "go"
+    v0.close()
+
+    _stub_verifiers_v1(monkeypatch, request)
+    failures.append(ValueError("hub down"))
+    v1 = sys.modules["verifiers.v1"]
+    monkeypatch.setattr(v1, "load_environment", flaky(_FakeV1Env))
+    from serve_v1 import V1EnvEnv
+
+    env = V1EnvEnv("tau2")
+    with pytest.raises(ValueError, match="hub down"):
+        env.reset(seed=0)
+    assert (env.env, env.tasks) == (None, [])
+    obs, _ = env.reset(seed=0)
+    assert json.loads(obs)["messages"][0]["content"] == "policy"
+    env.close()
+
+
+def test_v1_main_and_runtime_config(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest
+) -> None:
+    monkeypatch.setenv("RLMESH_OUTPUT_DIR", str(tmp_path))
+    monkeypatch.syspath_prepend(str(HERE))
+    _stub_verifiers_v1(monkeypatch, request)
+    import serve_v1
+
+    served: list[Any] = []
+    monkeypatch.setattr(serve_v1, "serve", lambda env, address: served.append(env))
+
+    def main(*flags: str) -> Any:
+        monkeypatch.setattr(sys, "argv", ["serve_v1.py", *flags])
+        serve_v1.main()
+        return served.pop()
+
+    monkeypatch.setenv("ENV_ID", "tau2")
+    env = main()
+    assert type(env) is serve_v1.V1EnvEnv and env.env_id == "tau2"
+    env.close()
+    assert type(main("--taskset", "primeintellect/gpqa")) is serve_v1.TasksetEnv
+
+    monkeypatch.delenv("ENV_ID")
+    monkeypatch.setenv("TASKSET", "primeintellect/aime25")
+    monkeypatch.setenv("RUNTIME", "docker")
+    with pytest.raises(ValueError, match="'docker'"):
+        serve_v1.TasksetEnv()
+    env = main("--taskset", "primeintellect/gpqa", "--runtime", "subprocess")
+    assert (env.taskset, env.runtime) == ("primeintellect/gpqa", "subprocess")
+
+    provisioned: list[Any] = []
+
+    @contextlib.asynccontextmanager
+    async def provision_runtime(config: Any) -> Any:
+        provisioned.append(config)
+        yield "runtime"
+
+    runtimes = ModuleType("verifiers.v1.runtimes")
+    runtimes.__dict__["provision_runtime"] = provision_runtime
+    monkeypatch.setitem(sys.modules, runtimes.__name__, runtimes)
+    v1 = sys.modules["verifiers.v1"]
+    for name in (
+        "MessageNode",
+        "ToolCall",
+        "AssistantMessage",
+        "Trace",
+        "TraceTask",
+        "AgentInfo",
+        "AgentConfig",
+        "SubprocessConfig",
+    ):
+        monkeypatch.setattr(v1, name, SimpleNamespace, raising=False)
+    scored: list[Any] = []
+
+    async def score(trace: Any, runtime: Any = None) -> None:
+        scored.append(runtime)
+        trace.rewards = {"passed": SimpleNamespace(score=1.0, weight=1.0)}
+
+    data = SimpleNamespace(name="h0", prompt="write f", system_prompt=None)
+    monkeypatch.setenv("RUNTIME", "subprocess")
+    env = serve_v1.TasksetEnv()
+    env.tasks = [SimpleNamespace(data=data, score=score)]
+    env.reset(seed=0)
+    _, reward, *_ = env.step(json.dumps({"content": "def f(): pass"}))
+    assert (reward, scored, len(provisioned)) == (1.0, ["runtime"], 1)
+
+
+def test_run_docker_builds_the_v1_environment_target_for_an_env_id(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.syspath_prepend(str(HERE))
+    import run_docker
+
+    commands: list[list[str]] = []
+    monkeypatch.setattr(run_docker.subprocess, "run", lambda cmd, **_: commands.append(cmd))
+    run_docker.build("env-v1.Dockerfile", "t", ["ENV_ID=primeintellect/tau2-bench"])
+    run_docker.build("env-v1.Dockerfile", "t", ["TASKSET=primeintellect/gpqa"])
+    run_docker.build("env-v0.Dockerfile", "t", ["ENV_ID=wordle"])
+    assert ["--target" in cmd for cmd in commands] == [True, False, False]
+    assert commands[0][commands[0].index("--target") + 1] == "environment"
