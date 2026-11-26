@@ -34,8 +34,14 @@ class LiberoEnv:
         self.max_steps = max_steps
         self.observation_space = spaces.Dict(
             {
-                **{key: spaces.Box(0, 255, (image_size, image_size, 3), "uint8") for key in IMAGE_KEYS},
-                **{key: spaces.Box("-inf", "inf", (dim,), "float32") for key, dim in STATE_KEYS.items()},
+                **{
+                    key: spaces.Box(0, 255, (image_size, image_size, 3), "uint8")
+                    for key in IMAGE_KEYS
+                },
+                **{
+                    key: spaces.Box("-inf", "inf", (dim,), "float32")
+                    for key, dim in STATE_KEYS.items()
+                },
                 "instruction": spaces.Text(max_length=256),
             }
         )
@@ -80,8 +86,6 @@ class LiberoEnv:
 
 
 class Libero(rlmesh.EnvFactory):
-    workflow_edition = "2026.06"
-
     tags = adapt.EnvTags(
         observation={
             "agentview_image": adapt.ImageTag(adapt.IMAGE_PRIMARY, upside_down=True),
@@ -104,7 +108,9 @@ class Libero(rlmesh.EnvFactory):
     params = rlmesh.ParamSpec(
         rlmesh.Param("task_suite", type="str", description="LIBERO task suite to load."),
         rlmesh.Param("task_id", type="int", description="Index of the task within the suite."),
-        rlmesh.Param("image_size", type="int", description="Camera image height and width in pixels."),
+        rlmesh.Param(
+            "image_size", type="int", description="Camera image height and width in pixels."
+        ),
         rlmesh.Param(
             "max_episode_steps",
             type="int",
@@ -142,7 +148,10 @@ class Libero(rlmesh.EnvFactory):
         bddl = pathlib.Path(get_libero_path("bddl_files")) / task.problem_folder / task.bddl_file
         # The wrapper owns the episode budget; disable robosuite's horizon.
         env = OffScreenRenderEnv(
-            bddl_file_name=bddl, camera_heights=image_size, camera_widths=image_size, ignore_done=True
+            bddl_file_name=bddl,
+            camera_heights=image_size,
+            camera_widths=image_size,
+            ignore_done=True,
         )
         return LiberoEnv(
             env,

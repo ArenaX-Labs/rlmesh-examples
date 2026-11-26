@@ -27,19 +27,15 @@ loop; this one covers what changes when the env is a robot sim.
 
 ## Run
 
-From the repo root:
+Hardware: CPU. Docker for the container; OSMesa to serve on the host.
 
 ```bash
 docker build -t rlmesh-examples/metaworld metaworld
-docker run --rm -p 127.0.0.1:50051:50051 rlmesh-examples/metaworld
-```
-
-Wait for `RLMesh serving env` in the container logs. Then, in a second terminal:
-
-```bash
 cd metaworld
-uv run run.py
+uv run run.py --image rlmesh-examples/metaworld
 ```
+
+`--image` starts the image as an `rlmesh.SandboxEnv` and removes the container when the run ends.
 
 ```text
 image=(256, 256, 3) state=(39,) task='Reach a goal position'
@@ -50,8 +46,6 @@ episodes=2 mean_reward=<float> steps=200
 can declare its own spec; RLMesh uses the env's `tags` to resolve supported field mappings. Matching
 fields does not make a policy trained for another robot solve the task.
 
-Stop the server with Ctrl-C when finished.
-
 ## Picking a task
 
 `env_name` selects the MT1 task (default `reach-v3`). `camera_name` and `image_size` set the camera.
@@ -61,11 +55,10 @@ The params are listed in `metaworld_env.py`, or ask the image:
 docker run --rm rlmesh-examples/metaworld rlmesh describe metaworld_env:MetaWorld
 ```
 
-Stop the current container, then pass the task to the factory:
+Pass the task to the factory as JSON:
 
 ```bash
-docker run --rm -p 127.0.0.1:50051:50051 \
-  -e 'RLMESH_MAKE_KWARGS={"env_name": "push-v3"}' rlmesh-examples/metaworld
+uv run run.py --image rlmesh-examples/metaworld --make-kwargs '{"env_name": "push-v3"}'
 ```
 
 ## Without Docker
@@ -74,5 +67,8 @@ You need OSMesa on the host (`libosmesa6` on Debian/Ubuntu, `mesa-libOSMesa` on 
 
 ```bash
 cd metaworld
-MUJOCO_GL=osmesa RLMESH_ADDRESS=127.0.0.1:50051 uv run python -m rlmesh.serve --env metaworld_env:MetaWorld
+MUJOCO_GL=osmesa RLMESH_ADDRESS=127.0.0.1:7447 uv run python -m rlmesh.serve --env metaworld_env:MetaWorld
 ```
+
+Then run `uv run run.py` from `metaworld/` in a second terminal. `RLMESH_MAKE_KWARGS` takes the same
+JSON as `--make-kwargs` when serving this way.
