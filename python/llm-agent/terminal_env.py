@@ -80,7 +80,9 @@ class TerminalTask(ChatTaskEnv):
         self.max_turns = int(os.environ.get("MAX_TURNS", "40"))
         self.turns = 0
         # The agent's shell sees the image's environment, not this server's.
-        self.shell_env = {k: v for k, v in os.environ.items() if not k.startswith(("RLMESH_", "TB_"))}
+        self.shell_env = {
+            k: v for k, v in os.environ.items() if not k.startswith(("RLMESH_", "TB_"))
+        }
 
     def start(self, index: int) -> Turn:
         self.task_id = self.env_id

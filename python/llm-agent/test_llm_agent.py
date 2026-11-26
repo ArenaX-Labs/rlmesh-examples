@@ -657,8 +657,10 @@ def test_terminal_task_runs_tools_and_grades_with_hidden_tests(
     assert "Put 42" in first["messages"][0]["content"]
     assert [t["function"]["name"] for t in first["tools"]] == ["run_shell", "write_file", "submit"]
 
-    obs, _, done, _, _ = act(("write_file", {"path": "answer.txt", "content": "42\n"}),
-                             ("run_shell", {"command": "cat answer.txt; env"}))
+    obs, _, done, _, _ = act(
+        ("write_file", {"path": "answer.txt", "content": "42\n"}),
+        ("run_shell", {"command": "cat answer.txt; env"}),
+    )
     results = json.loads(obs)["messages"]
     assert not done and [m["tool_call_id"] for m in results] == ["c0", "c1"]
     assert results[1]["content"].startswith("exit code 0\n42")
