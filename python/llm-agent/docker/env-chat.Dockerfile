@@ -10,7 +10,6 @@ WORKDIR /app
 COPY chat_env.py ./
 
 ENV RLMESH_OUTPUT_DIR=/rlmesh/output/env \
-    RLMESH_ADDRESS=0.0.0.0:7447 \
     RLMESH_NAME=env \
     RLMESH_READY_FILE=/tmp/rlmesh-ready.json
 EXPOSE 7447

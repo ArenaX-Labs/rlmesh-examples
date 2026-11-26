@@ -63,8 +63,9 @@ and [`run.py`](run.py) is `LLMHarness(...).run(args.address, seeds=list(range(ar
 ## Needs
 
 - CPU and an OpenAI-compatible LLM server. The harness reads `OPENAI_BASE_URL` (default Ollama at
-  `http://localhost:11434/v1`) and `OPENAI_API_KEY`; for Claude, set `ANTHROPIC_API_KEY` (what an
-  Anthropic connection on RLMesh Managed provides) and pass `--model claude-sonnet-5-5`:
+  `http://localhost:11434/v1`) and `OPENAI_API_KEY`. For Claude, set `ANTHROPIC_API_KEY` (what an
+  Anthropic connection on RLMesh Managed provides) and pass `--model claude-sonnet-5-5`: the harness
+  then calls Anthropic's Messages API with adaptive thinking and logs Claude's summarized thinking.
 
   ```bash
   ollama pull qwen3:4b && ollama serve    # gemma3:4b for color-codeword's images
@@ -109,6 +110,24 @@ and [`run.py`](run.py) is `LLMHarness(...).run(args.address, seeds=list(range(ar
   `OLLAMA_HOST=0.0.0.0`. On Docker Desktop a sandbox model cannot reach a sandbox env; use
   `--local-harness`. Never bake a real `OPENAI_API_KEY` into an image: Managed injects credentials
   at run time.
+- **RLMesh Managed.** Managed envs reach only a few hosts, so an env image fetches its task's data
+  at build time (`env-v0.Dockerfile` does). Label each image with its describe envelope, or Managed
+  starts it as an rlmesh 0.1 server, and push it as `:latest`, the tag evaluations run:
+
+  ```bash
+  img=registry.rlmesh.dev/<namespace>/llm-harness
+  docker build -f docker/harness.Dockerfile --build-arg OPENAI_MODEL=claude-sonnet-5-5 -t "$img" .
+  label=$(docker run --rm --entrypoint rlmesh "$img" describe harness:LLMHarness --label)
+  echo "FROM $img" | docker build --label "$label" -t "${img}:latest" - && docker push "${img}:latest"
+  ```
+
+  The env is the same with `env-v0.Dockerfile` and `serve_v0:EnvironmentEnv`. Add your provider key
+  under Settings → Connections, then name it on the model in the evaluation request:
+  `{"models": [{"model": "<namespace>/llm-harness", "connections": ["conn_..."]}], "tasks": [{"taskId": "wordle", "env": "<namespace>/llm-env-wordle", "episodes": 3}]}`.
+
 - **Output.** Both sides write under `$RLMESH_OUTPUT_DIR` (default `./runs/<timestamp>`):
-  `transcripts/<episode_id>.jsonl` from the harness (one line per LLM call, then `episode_end`) and
-  `env/seed-<seed>.jsonl` from the env (one line per finished episode).
+  `transcripts/<episode_id>.jsonl` from the harness (one line per LLM call with the request, the
+  reply, its `reasoning` when the provider returns one, and usage; then `episode_end`) and
+  `env/seed-<seed>.jsonl` from the env (one line per finished episode). The harness also prints one
+  line per step to stderr (reply, tool calls, tokens, start of the thinking), which Managed shows as
+  the model log.

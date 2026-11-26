@@ -16,7 +16,6 @@ COPY entrypoint.py .
 
 # A session host listens on one port, which every traffic class dials.
 EXPOSE 7447
-ENV RLMESH_ADDRESS=0.0.0.0:7447
 # Written once the env answers, removed when it stops.
 ENV RLMESH_READY_FILE=/tmp/rlmesh-ready.json
 HEALTHCHECK --interval=2s --start-period=120s CMD test -f /tmp/rlmesh-ready.json
