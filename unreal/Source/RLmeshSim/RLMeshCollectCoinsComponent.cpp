@@ -1,6 +1,5 @@
 #include "RLMeshCollectCoinsComponent.h"
 
-#include "Components/SceneComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/StaticMeshActor.h"
@@ -10,6 +9,7 @@
 #include "UObject/UObjectGlobals.h"
 
 #include <limits>
+#include <vector>
 
 URLMeshCollectCoinsComponent::URLMeshCollectCoinsComponent()
 {
@@ -18,13 +18,7 @@ URLMeshCollectCoinsComponent::URLMeshCollectCoinsComponent()
 
 void URLMeshCollectCoinsComponent::BeginPlay()
 {
-	// Steps move the owner, which a Static root refuses.
-	if (USceneComponent* Root = GetOwner()->GetRootComponent())
-	{
-		Root->SetMobility(EComponentMobility::Movable);
-	}
 	Start = GetOwner()->GetActorLocation();
-	Random.GenerateNewSeed();
 
 	UStaticMesh* Sphere = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Sphere.Sphere"));
 	FActorSpawnParameters Spawn;
@@ -47,8 +41,8 @@ rlmesh::spaces::Space URLMeshCollectCoinsComponent::ObservationSpace() const
 {
 	const double Infinity = std::numeric_limits<double>::infinity();
 	return rlmesh::spaces::Dict({
-		{"nearest_coin", rlmesh::spaces::Box(-Infinity, Infinity, {2}).spec()},
-		{"coins_left", rlmesh::spaces::Discrete(NumCoins + 1).spec()},
+		{"nearest_coin", rlmesh::spaces::Box(-Infinity, Infinity, {2})},
+		{"coins_left", rlmesh::spaces::Discrete(NumCoins + 1)},
 	});
 }
 
@@ -57,14 +51,9 @@ rlmesh::spaces::Space URLMeshCollectCoinsComponent::ActionSpace() const
 	return rlmesh::spaces::Box(-1.0, 1.0, {2});
 }
 
-rlmesh::ResetResult URLMeshCollectCoinsComponent::ResetEnv(std::optional<int64_t> Seed,
+rlmesh::ResetResult URLMeshCollectCoinsComponent::ResetEnv(std::optional<int64_t>,
 														   const std::optional<rlmesh::InfoDict>&)
 {
-	if (Seed)
-	{
-		const uint64 Bits = static_cast<uint64>(*Seed);
-		Random.Initialize(static_cast<int32>(Bits ^ (Bits >> 32)));
-	}
 	GetOwner()->SetActorLocation(Start);
 	for (AActor* Coin : Coins)
 	{
@@ -79,12 +68,7 @@ rlmesh::ResetResult URLMeshCollectCoinsComponent::ResetEnv(std::optional<int64_t
 
 rlmesh::StepResult URLMeshCollectCoinsComponent::StepEnv(const std::optional<rlmesh::Value>& Action)
 {
-	const rlmesh::Tensor Direction = Action.value().as_tensor();
-	if (Direction.dtype() != rlmesh::DType::Float32 || Direction.size() != 2)
-	{
-		throw rlmesh::RecoverableEnvironmentException("step needs a float32 action of shape (2,)");
-	}
-	const float* D = reinterpret_cast<const float*>(Direction.buffer().data());
+	const std::vector<float> D = rlmesh::ext::to_vector<float>(Action->as_tensor());
 	const double Travel = FMath::Min(static_cast<double>(StepSize), OffsetTo(NearestCoin()).Size());
 	GetOwner()->AddActorWorldOffset(FVector(FVector2D(D[0], D[1]).GetSafeNormal() * Travel, 0.0));
 	++Steps;
@@ -138,9 +122,9 @@ int32 URLMeshCollectCoinsComponent::CoinsLeft() const
 rlmesh::Value URLMeshCollectCoinsComponent::Observe() const
 {
 	const FVector2D Offset = OffsetTo(NearestCoin());
-	const float NearestXY[2] = {static_cast<float>(Offset.X), static_cast<float>(Offset.Y)};
 	return rlmesh::Metadata{
-		{"nearest_coin", rlmesh::Tensor(NearestXY, sizeof(NearestXY), {2}, rlmesh::DType::Float32)},
+		{"nearest_coin",
+		 rlmesh::ext::from_vector<float>({static_cast<float>(Offset.X), static_cast<float>(Offset.Y)}, {2})},
 		{"coins_left", CoinsLeft()},
 	};
 }

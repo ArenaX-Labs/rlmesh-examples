@@ -4,6 +4,7 @@
 #include "GameFramework/Actor.h"
 
 #include <limits>
+#include <vector>
 
 URLMeshChasePointComponent::URLMeshChasePointComponent()
 {
@@ -12,20 +13,16 @@ URLMeshChasePointComponent::URLMeshChasePointComponent()
 
 void URLMeshChasePointComponent::BeginPlay()
 {
-	// Steps move the owner and the goal, which a Static root refuses.
-	for (AActor* Actor : {GetOwner(), GoalActor.Get()})
-	{
-		if (USceneComponent* Root = Actor ? Actor->GetRootComponent() : nullptr)
-		{
-			Root->SetMobility(EComponentMobility::Movable);
-		}
-	}
 	Start = GetOwner()->GetActorLocation();
 	if (IsValid(GoalActor))
 	{
+		// Steps move the goal, which a Static root refuses.
+		if (USceneComponent* Root = GoalActor->GetRootComponent())
+		{
+			Root->SetMobility(EComponentMobility::Movable);
+		}
 		GoalHome = FVector2D(GoalActor->GetActorLocation());
 	}
-	Random.GenerateNewSeed();
 	Super::BeginPlay();
 }
 
@@ -40,14 +37,8 @@ rlmesh::spaces::Space URLMeshChasePointComponent::ActionSpace() const
 	return rlmesh::spaces::Box(-1.0, 1.0, {2});
 }
 
-rlmesh::ResetResult URLMeshChasePointComponent::ResetEnv(std::optional<int64_t> Seed,
-														 const std::optional<rlmesh::InfoDict>&)
+rlmesh::ResetResult URLMeshChasePointComponent::ResetEnv(std::optional<int64_t>, const std::optional<rlmesh::InfoDict>&)
 {
-	if (Seed)
-	{
-		const uint64 Bits = static_cast<uint64>(*Seed);
-		Random.Initialize(static_cast<int32>(Bits ^ (Bits >> 32)));
-	}
 	GetOwner()->SetActorLocation(Start);
 	if (!IsValid(GoalActor))
 	{
@@ -62,12 +53,7 @@ rlmesh::ResetResult URLMeshChasePointComponent::ResetEnv(std::optional<int64_t> 
 
 rlmesh::StepResult URLMeshChasePointComponent::StepEnv(const std::optional<rlmesh::Value>& Action)
 {
-	const rlmesh::Tensor Direction = Action.value().as_tensor();
-	if (Direction.dtype() != rlmesh::DType::Float32 || Direction.size() != 2)
-	{
-		throw rlmesh::RecoverableEnvironmentException("step needs a float32 action of shape (2,)");
-	}
-	const float* D = reinterpret_cast<const float*>(Direction.buffer().data());
+	const std::vector<float> D = rlmesh::ext::to_vector<float>(Action->as_tensor());
 	const double Travel = FMath::Min(static_cast<double>(StepSize), GoalOffset().Size());
 	GetOwner()->AddActorWorldOffset(FVector(FVector2D(D[0], D[1]).GetSafeNormal() * Travel, 0.0));
 	++Steps;
@@ -107,6 +93,5 @@ void URLMeshChasePointComponent::MoveGoal(const FVector2D& NewGoal)
 rlmesh::Value URLMeshChasePointComponent::Observe() const
 {
 	const FVector2D Offset = GoalOffset();
-	const float Observation[2] = {static_cast<float>(Offset.X), static_cast<float>(Offset.Y)};
-	return rlmesh::Tensor(Observation, sizeof(Observation), {2}, rlmesh::DType::Float32);
+	return rlmesh::ext::from_vector<float>({static_cast<float>(Offset.X), static_cast<float>(Offset.Y)}, {2});
 }

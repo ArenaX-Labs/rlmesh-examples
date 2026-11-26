@@ -1,6 +1,5 @@
 #include "RLMeshDemoArenaComponent.h"
 
-#include "Components/SceneComponent.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "GameFramework/Actor.h"
@@ -15,11 +14,6 @@ URLMeshDemoArenaComponent::URLMeshDemoArenaComponent()
 
 void URLMeshDemoArenaComponent::BeginPlay()
 {
-	// Steps move the owner, which a Static root refuses.
-	if (USceneComponent* Root = GetOwner()->GetRootComponent())
-	{
-		Root->SetMobility(EComponentMobility::Movable);
-	}
 	Start = GetOwner()->GetActorLocation();
 
 	for (TActorIterator<AActor> It(GetWorld()); It; ++It)
@@ -55,10 +49,10 @@ rlmesh::spaces::Space URLMeshDemoArenaComponent::ObservationSpace() const
 {
 	const double Infinity = std::numeric_limits<double>::infinity();
 	return rlmesh::spaces::Dict({
-		{"goal", rlmesh::spaces::Box(-Infinity, Infinity, {2}).spec()},
-		{"coins", rlmesh::spaces::Box(-Infinity, Infinity, {NumCoins, 2}).spec()},
-		{"obstacles", rlmesh::spaces::Box(-Infinity, Infinity, {NumObstacles, 2}).spec()},
-		{"walls", rlmesh::spaces::Box(0.0, WallSenseRange, {NumWallRays}).spec()},
+		{"goal", rlmesh::spaces::Box(-Infinity, Infinity, {2})},
+		{"coins", rlmesh::spaces::Box(-Infinity, Infinity, {NumCoins, 2})},
+		{"obstacles", rlmesh::spaces::Box(-Infinity, Infinity, {NumObstacles, 2})},
+		{"walls", rlmesh::spaces::Box(0.0, WallSenseRange, {NumWallRays})},
 	});
 }
 
@@ -80,12 +74,7 @@ rlmesh::ResetResult URLMeshDemoArenaComponent::ResetEnv(std::optional<int64_t>, 
 
 rlmesh::StepResult URLMeshDemoArenaComponent::StepEnv(const std::optional<rlmesh::Value>& Action)
 {
-	const rlmesh::Tensor Direction = Action.value().as_tensor();
-	if (Direction.dtype() != rlmesh::DType::Float32 || Direction.size() != 2)
-	{
-		throw rlmesh::RecoverableEnvironmentException("step needs a float32 action of shape (2,)");
-	}
-	const float* D = reinterpret_cast<const float*>(Direction.buffer().data());
+	const std::vector<float> D = rlmesh::ext::to_vector<float>(Action->as_tensor());
 	const FVector2D Heading = FVector2D(D[0], D[1]).GetSafeNormal();
 
 	// Stop on the nearest pickup rather than stepping past it.
@@ -184,8 +173,6 @@ bool URLMeshDemoArenaComponent::TouchesObstacle() const
 rlmesh::Value URLMeshDemoArenaComponent::Observe() const
 {
 	const FVector2D GoalOffset = OffsetTo(Goal);
-	const float GoalXY[2] = {static_cast<float>(GoalOffset.X), static_cast<float>(GoalOffset.Y)};
-
 	std::vector<float> CoinXY(2 * NumCoins, 0.f);
 	for (int32 i = 0; i < Coins.Num(); ++i)
 	{
@@ -216,14 +203,11 @@ rlmesh::Value URLMeshDemoArenaComponent::Observe() const
 		}
 	}
 
-	const size_t CoinCount = static_cast<size_t>(NumCoins);
-	const size_t ObstacleCount = static_cast<size_t>(NumObstacles);
-	const size_t RayCount = static_cast<size_t>(NumWallRays);
 	return rlmesh::Metadata{
-		{"goal", rlmesh::Tensor(GoalXY, sizeof(GoalXY), {2}, rlmesh::DType::Float32)},
-		{"coins", rlmesh::Tensor(CoinXY.data(), CoinXY.size() * sizeof(float), {CoinCount, 2}, rlmesh::DType::Float32)},
-		{"obstacles", rlmesh::Tensor(ObstacleXY.data(), ObstacleXY.size() * sizeof(float), {ObstacleCount, 2},
-									 rlmesh::DType::Float32)},
-		{"walls", rlmesh::Tensor(Walls.data(), Walls.size() * sizeof(float), {RayCount}, rlmesh::DType::Float32)},
+		{"goal",
+		 rlmesh::ext::from_vector<float>({static_cast<float>(GoalOffset.X), static_cast<float>(GoalOffset.Y)}, {2})},
+		{"coins", rlmesh::ext::from_vector(CoinXY, {static_cast<size_t>(NumCoins), 2})},
+		{"obstacles", rlmesh::ext::from_vector(ObstacleXY, {static_cast<size_t>(NumObstacles), 2})},
+		{"walls", rlmesh::ext::from_vector(Walls, {static_cast<size_t>(NumWallRays)})},
 	};
 }

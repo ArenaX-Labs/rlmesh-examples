@@ -1,6 +1,5 @@
 #include "RLMeshAvoidHazardsComponent.h"
 
-#include "Components/SceneComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/StaticMeshActor.h"
@@ -19,13 +18,7 @@ URLMeshAvoidHazardsComponent::URLMeshAvoidHazardsComponent()
 
 void URLMeshAvoidHazardsComponent::BeginPlay()
 {
-	// Steps move the owner, which a Static root refuses.
-	if (USceneComponent* Root = GetOwner()->GetRootComponent())
-	{
-		Root->SetMobility(EComponentMobility::Movable);
-	}
 	Start = GetOwner()->GetActorLocation();
-	Random.GenerateNewSeed();
 
 	UStaticMesh* Cube = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cube.Cube"));
 	FActorSpawnParameters Spawn;
@@ -49,8 +42,8 @@ rlmesh::spaces::Space URLMeshAvoidHazardsComponent::ObservationSpace() const
 {
 	const double Infinity = std::numeric_limits<double>::infinity();
 	return rlmesh::spaces::Dict({
-		{"goal", rlmesh::spaces::Box(-Infinity, Infinity, {2}).spec()},
-		{"hazards", rlmesh::spaces::Box(-Infinity, Infinity, {NumHazards, 2}).spec()},
+		{"goal", rlmesh::spaces::Box(-Infinity, Infinity, {2})},
+		{"hazards", rlmesh::spaces::Box(-Infinity, Infinity, {NumHazards, 2})},
 	});
 }
 
@@ -59,14 +52,9 @@ rlmesh::spaces::Space URLMeshAvoidHazardsComponent::ActionSpace() const
 	return rlmesh::spaces::Box(-1.0, 1.0, {2});
 }
 
-rlmesh::ResetResult URLMeshAvoidHazardsComponent::ResetEnv(std::optional<int64_t> Seed,
+rlmesh::ResetResult URLMeshAvoidHazardsComponent::ResetEnv(std::optional<int64_t>,
 														   const std::optional<rlmesh::InfoDict>&)
 {
-	if (Seed)
-	{
-		const uint64 Bits = static_cast<uint64>(*Seed);
-		Random.Initialize(static_cast<int32>(Bits ^ (Bits >> 32)));
-	}
 	GetOwner()->SetActorLocation(Start);
 	if (IsValid(GoalActor))
 	{
@@ -95,12 +83,7 @@ rlmesh::ResetResult URLMeshAvoidHazardsComponent::ResetEnv(std::optional<int64_t
 
 rlmesh::StepResult URLMeshAvoidHazardsComponent::StepEnv(const std::optional<rlmesh::Value>& Action)
 {
-	const rlmesh::Tensor Direction = Action.value().as_tensor();
-	if (Direction.dtype() != rlmesh::DType::Float32 || Direction.size() != 2)
-	{
-		throw rlmesh::RecoverableEnvironmentException("step needs a float32 action of shape (2,)");
-	}
-	const float* D = reinterpret_cast<const float*>(Direction.buffer().data());
+	const std::vector<float> D = rlmesh::ext::to_vector<float>(Action->as_tensor());
 	const double Travel = FMath::Min(static_cast<double>(StepSize), OffsetTo(Goal).Size());
 	GetOwner()->AddActorWorldOffset(FVector(FVector2D(D[0], D[1]).GetSafeNormal() * Travel, 0.0));
 	++Steps;
@@ -135,7 +118,6 @@ bool URLMeshAvoidHazardsComponent::TouchesHazard() const
 rlmesh::Value URLMeshAvoidHazardsComponent::Observe() const
 {
 	const FVector2D GoalOffset = OffsetTo(Goal);
-	const float GoalXY[2] = {static_cast<float>(GoalOffset.X), static_cast<float>(GoalOffset.Y)};
 	std::vector<float> HazardXY;
 	for (const AActor* Hazard : Hazards)
 	{
@@ -143,10 +125,9 @@ rlmesh::Value URLMeshAvoidHazardsComponent::Observe() const
 		HazardXY.push_back(static_cast<float>(Offset.X));
 		HazardXY.push_back(static_cast<float>(Offset.Y));
 	}
-	const size_t HazardCount = static_cast<size_t>(Hazards.Num());
 	return rlmesh::Metadata{
-		{"goal", rlmesh::Tensor(GoalXY, sizeof(GoalXY), {2}, rlmesh::DType::Float32)},
-		{"hazards",
-		 rlmesh::Tensor(HazardXY.data(), HazardXY.size() * sizeof(float), {HazardCount, 2}, rlmesh::DType::Float32)},
+		{"goal",
+		 rlmesh::ext::from_vector<float>({static_cast<float>(GoalOffset.X), static_cast<float>(GoalOffset.Y)}, {2})},
+		{"hazards", rlmesh::ext::from_vector(HazardXY, {static_cast<size_t>(Hazards.Num()), 2})},
 	};
 }
