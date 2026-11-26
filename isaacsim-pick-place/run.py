@@ -1,6 +1,7 @@
 """Scripted pick and place through a resolved RLMesh adapter, without Isaac imports."""
 
 import argparse
+import os
 
 import numpy as np
 import rlmesh
@@ -63,10 +64,7 @@ class PickPlacePolicy:
     def predict(self, obs):
         if self.pickup is None:
             self.pickup = np.array(obs["object"], copy=True)
-            print(
-                f"camera={obs['camera'].shape}/{obs['camera'].dtype} "
-                f"state={obs['state'].shape}"
-            )
+            print(f"camera={obs['camera'].shape}/{obs['camera'].dtype} state={obs['state'].shape}")
             print(f"task={obs['task']}")
         phase = self.phase
         if self.steps == 0:
@@ -87,12 +85,11 @@ class PickPlacePolicy:
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--address", default="127.0.0.1:50051")
+    # The address carries the session key: read it from the environment, not the command line.
+    parser.add_argument("--address", default=os.environ.get("RLMESH_ENV_ADDRESS"))
     parser.add_argument("--episodes", type=int, default=3)
     parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument(
-        "--record", help="Save metrics and camera video to a directory or .zip"
-    )
+    parser.add_argument("--record", help="Save metrics and camera video to a directory or .zip")
     parser.add_argument(
         "--check",
         action="store_true",
@@ -104,6 +101,8 @@ def main():
         help="Watch the camera live: 'http' serves a page on localhost:8008",
     )
     args = parser.parse_args()
+    if not args.address:
+        parser.error("set RLMESH_ENV_ADDRESS to the env's keyed address")
     if args.episodes < 1:
         parser.error("--episodes must be at least 1")
 
@@ -119,22 +118,20 @@ def main():
             if args.record
             else None
         )
-        with model.session(args.address, view=args.view) as session:
-            result = session.run(
-                seeds=list(range(args.seed, args.seed + args.episodes)), hooks=hooks
-            )
+        result = model.run(
+            args.address,
+            seeds=list(range(args.seed, args.seed + args.episodes)),
+            hooks=hooks,
+            view=args.view,
+        )
         print(
             f"episodes={result.num_episodes} steps={result.total_steps} "
             f"success_rate={result.success_rate}"
         )
         if args.record:
             print(f"Recording: {recorder.export(args.record)}")
-    if args.check and (
-        result.num_episodes != args.episodes or result.success_rate != 1.0
-    ):
-        raise SystemExit(
-            "Pick-and-place check failed: not all requested episodes succeeded"
-        )
+    if args.check and (result.num_episodes != args.episodes or result.success_rate != 1.0):
+        raise SystemExit("Pick-and-place check failed: not all requested episodes succeeded")
 
 
 if __name__ == "__main__":

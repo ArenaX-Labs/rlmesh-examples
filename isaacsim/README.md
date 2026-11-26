@@ -1,17 +1,14 @@
 # Isaac Sim
 
-A Franka Panda reaches a random target on Isaac Sim 6.1, with an RTX camera. This is the GPU
-example: a batched simulator, a vendor base image, and a simulator that only works from one thread.
+A Franka Panda reaches a random target on Isaac Sim 6.1, with an RTX camera. This is the batched GPU
+example: a vector env, a vendor base image, and a simulator that only works from one thread.
 
 Read [`hello-env`](../hello-env/) first for the factory → Dockerfile → run loop.
 
 The client uses `Model(predict, spec=rlmesh.NO_ADAPTER)`: its policy reads the environment's keys
 and returns the environment's three-value delta action directly. `FrankaReach.tags` describes those
 fields for other models, but this client requests no conversion. For a resolved `ModelSpec` that
-changes camera, pose, and gripper formats, see the
-[`UR10e pick-and-place example`](../isaacsim-pick-place/).
-
-## Files
+changes camera, pose, and gripper formats, see [`isaacsim-pick-place`](../isaacsim-pick-place/).
 
 | File              | What it is                                                                          |
 | ----------------- | ----------------------------------------------------------------------------------- |
@@ -22,7 +19,8 @@ changes camera, pose, and gripper formats, see the
 ## What's new compared to the CPU examples
 
 `prepare()` starts Kit once per process, and `make(lanes=N)` builds N Frankas in one stage. Isaac
-Sim needs its calls on the main thread. `rlmesh.serve` keeps setup and environment calls there.
+Sim needs its calls on the main thread; `rlmesh.serve` runs `prepare()`, `make()` and every env call
+there.
 
 At `lanes=1`, RLMesh serves the batched environment as a scalar environment. With multiple lanes, it
 steps them together in lockstep. Finished lanes reset on their next step (Gymnasium `NEXT_STEP`),
@@ -37,30 +35,33 @@ hand delta of up to 5 cm per axis; the env solves the arm IK.
 
 ## Run
 
-Needs an RTX GPU with a driver Isaac Sim 6.1 supports, the NVIDIA container runtime, and about 11 GB
-of RAM. Assets stream from NVIDIA's S3 at startup, so the container needs network access. The
+Hardware: an RTX GPU with a driver Isaac Sim 6.1 supports, the NVIDIA container runtime, and about
+11 GB of RAM. Assets stream from NVIDIA's S3 at startup, so the container needs network access. The
 Dockerfile sets NVIDIA's EULA and privacy-consent variables; review those terms before use.
 
-From the repo root:
+The container serves on every interface, so it needs a host identity: make one, pass it to the
+container, and dial the keyed address it prints.
 
 ```bash
 docker build -t rlmesh-examples/isaacsim isaacsim
-docker run --rm --gpus all --memory=16g -p 127.0.0.1:50051:50051 \
-  -e 'RLMESH_MAKE_KWARGS={"lanes": 4}' rlmesh-examples/isaacsim
+cd isaacsim
+uv run rlmesh host-identity new --out env.identity --address 127.0.0.1:7447 --participant env
+# prints address=127.0.0.1:7447#<key>/env
+RLMESH_HOST_IDENTITY="$(cat env.identity)" docker run --rm --gpus all --memory=16g \
+  -e RLMESH_HOST_IDENTITY -e 'RLMESH_MAKE_KWARGS={"lanes": 4}' \
+  -p 127.0.0.1:7447:7447 rlmesh-examples/isaacsim
 ```
 
-Wait for `RLMesh serving env` in the container logs. Then, in a second terminal:
+Wait for `RLMesh serving env` in the container logs (about 45 s). Then, in a second terminal:
 
 ```bash
 cd isaacsim
-uv run run.py
+RLMESH_ENV_ADDRESS='127.0.0.1:7447#<key>/env' uv run run.py
 ```
 
-The client prints the episode count, steps, and success rate. Step counts and success can vary with
-the sampled targets. Use `--address HOST:PORT` to connect to a different server.
-
-`--memory` caps the container, so running out of memory kills the container instead of your desktop.
-Stop the container with Ctrl-C when finished.
+The client prints the episode count, steps, and success rate. Step counts and success vary with the
+sampled targets. `--memory` caps the container, so running out of memory kills the container instead
+of your desktop. Stop the container with Ctrl-C when finished.
 
 ## Coming from Isaac Lab
 
@@ -72,6 +73,8 @@ Stop the container with Ctrl-C when finished.
 | `AppLauncher` starts the app in your script                                          | `prepare()` starts it; `make()` builds the scene.                                                                                            |
 | Torch tensors on the GPU                                                             | Return numpy, or subclass `rlmesh.torch.EnvFactory` to serve torch values without converting.                                                |
 
-## GPU scheduling on RLMesh Managed
+## Run on RLMesh Managed
 
-The `gpu` tag in the image's `dev.rlmesh.package` label asks RLMesh Managed for a GPU node.
+Push the image as in [hello-env](../hello-env/#run-on-rlmesh-managed). The `gpu` tag in the image's
+`dev.rlmesh.package` label asks RLMesh Managed for a GPU node, and Managed supplies the address and
+host identity itself.
