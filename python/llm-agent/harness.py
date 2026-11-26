@@ -258,6 +258,7 @@ class LLMHarness(rlmesh.Model):
         self.model_name = model
         backend = anthropic_chat if os.environ.get("ANTHROPIC_API_KEY") else openai_chat
         self.chat = chat or backend(model, max_tokens)
+        self.system_prompt = os.environ.get("OPENAI_SYSTEM_PROMPT", "")
         self.retries = retries
         self.transcripts = output_dir() / "transcripts"
         self.transcripts.mkdir(exist_ok=True)
@@ -275,6 +276,8 @@ class LLMHarness(rlmesh.Model):
             return json.dumps({"role": "assistant", "content": ""})
         tools: list[dict[str, Any]] = obs["tools"]
         messages: list[Message] = context["state"].setdefault("messages", [])
+        if not messages and self.system_prompt:
+            messages.append({"role": "system", "content": self.system_prompt})
         messages.extend(obs["messages"])
         episode = context["episode_id"] or "episode"
         self.steps[episode] = context["predict_index"] + 1

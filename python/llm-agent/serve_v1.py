@@ -47,7 +47,8 @@ class TasksetEnv(ChatTaskEnv):
 
     def start(self, index: int) -> Turn:
         if not self.tasks:
-            self.tasks = list(vf.load_taskset(vf.TasksetConfig(id=self.taskset)).load())
+            config = vf.taskset_config_type(self.taskset)(id=self.taskset)
+            self.tasks = list(vf.load_taskset(config).load())
         self.task = self.tasks[index % len(self.tasks)]
         data = self.task.data
         self.task_id = str(data.name or data.id or data.idx)
