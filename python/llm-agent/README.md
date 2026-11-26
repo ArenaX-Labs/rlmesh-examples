@@ -126,8 +126,8 @@ and [`run.py`](run.py) is `LLMHarness(...).run(args.address, seeds=list(range(ar
   `{"models": [{"model": "<namespace>/llm-harness", "connections": ["conn_..."]}], "tasks": [{"taskId": "wordle", "env": "<namespace>/llm-env-wordle", "episodes": 3}]}`.
 
 - **Output.** Both sides write under `$RLMESH_OUTPUT_DIR` (default `./runs/<timestamp>`):
-  `transcripts/<episode_id>.jsonl` from the harness (one line per LLM call with the request, the
-  reply, its `reasoning` when the provider returns one, and usage; then `episode_end`) and
-  `env/seed-<seed>.jsonl` from the env (one line per finished episode). The harness also prints one
-  line per step to stderr (reply, tool calls, tokens, start of the thinking), which Managed shows as
-  the model log.
+  `transcripts/<episode_id>.jsonl` from the harness (one line per LLM call with the step, the
+  episode seed (which RLMesh also records per episode), the request, the reply, its `reasoning` when
+  the provider returns one, and usage; then `episode_end`) and `env/seed-<seed>.jsonl` from the env
+  (one line per finished episode). The harness also prints one line per step to stderr (reply, tool
+  calls, tokens, start of the thinking), which Managed shows as the model log.
