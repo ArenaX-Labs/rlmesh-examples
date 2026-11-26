@@ -1,0 +1,8 @@
+[project]
+name = "sandbox"
+version = "0.0.0"
+requires-python = ">=3.11"
+dependencies = ["rlmesh[gymnasium,hf,numpy]==0.2.0a2"]
+
+[tool.uv]
+package = false

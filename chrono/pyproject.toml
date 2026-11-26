@@ -1,0 +1,9 @@
+[project]
+name = "chrono-reach"
+version = "0.0.0"
+requires-python = ">=3.11"
+# run_model.py; the C++ env builds rlmesh-capi from the matching rlmesh tag (demo.sh, Dockerfile).
+dependencies = ["rlmesh[numpy]==0.2.0a2"]
+
+[tool.uv]
+package = false

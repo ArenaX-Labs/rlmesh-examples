@@ -1,0 +1,9 @@
+[project]
+name = "byo-container"
+version = "0.0.0"
+requires-python = ">=3.11"
+# For run.py on the host; each image pins the same rlmesh in its Dockerfile.
+dependencies = ["rlmesh[gymnasium,numpy]==0.2.0a2"]
+
+[tool.uv]
+package = false
