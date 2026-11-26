@@ -1,0 +1,21 @@
+[project]
+name = "rlmesh-examples"
+version = "0.0.0"
+requires-python = ">=3.11"
+dependencies = []
+
+[dependency-groups]
+dev = ["rlmesh[gymnasium,numpy,robot]==0.2.0a2", "mujoco==3.16.0", "mcap==1.6.0", "pytest", "ruff"]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+addopts = ["--import-mode=importlib", "-m", "not docker"]
+markers = ["docker: builds and runs Docker images (pytest -m docker)"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]
