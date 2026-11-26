@@ -13,9 +13,7 @@ import rlmesh
 import rlmesh.adapters as adapt
 import rlmesh.spaces as spaces
 
-ROBOT_USD = (
-    "/Isaac/Samples/Rigging/Manipulator/configure_manipulator/ur10e/ur/ur_gripper.usd"
-)
+ROBOT_USD = "/Isaac/Samples/Rigging/Manipulator/configure_manipulator/ur10e/ur/ur_gripper.usd"
 ARM_NAMES = (
     "shoulder_pan_joint",
     "shoulder_lift_joint",
@@ -76,9 +74,7 @@ class PickPlaceEnv:
 
         stage_utils.create_new_stage()
         SimulationManager.setup_simulation(dt=PHYSICS_DT, device="cpu")
-        stage_utils.add_reference_to_stage(
-            get_assets_root_path() + ROBOT_USD, path="/World/robot"
-        )
+        stage_utils.add_reference_to_stage(get_assets_root_path() + ROBOT_USD, path="/World/robot")
         GroundPlane("/World/ground")
         DomeLight("/World/light").set_intensities(1000)
         red = PreviewSurfaceMaterial("/Looks/red")
@@ -105,9 +101,7 @@ class PickPlaceEnv:
             target=[0.3, 0.2, 0.25],
             camera_prim_path="/World/camera",
         )
-        self.camera = CameraSensor(
-            camera, resolution=(image_size, image_size), annotators=["rgb"]
-        )
+        self.camera = CameraSensor(camera, resolution=(image_size, image_size), annotators=["rgb"])
         self.controller = PinkIKController(
             # NVIDIA's tutorial pairs this model with the packaged UR10e USD.
             pink_robot=load_pink_supported_robot("ur10"),
@@ -148,9 +142,7 @@ class PickPlaceEnv:
         self.robot.set_dof_velocities(0.0)
         self.robot.set_dof_position_targets(self.home)
         self.cube.set_world_poses(positions=pickup, orientations=[1.0, 0.0, 0.0, 0.0])
-        self.cube.set_velocities(
-            linear_velocities=np.zeros(3), angular_velocities=np.zeros(3)
-        )
+        self.cube.set_velocities(linear_velocities=np.zeros(3), angular_velocities=np.zeros(3))
         self.marker.set_world_poses(positions=[*self.target[:2], 0.001])
         for _ in range(30):
             self.app.update()
@@ -167,12 +159,8 @@ class PickPlaceEnv:
 
         action = np.asarray(action, dtype=np.float32)
         if action.shape != (4,) or not np.isfinite(action).all():
-            raise ValueError(
-                "Expected four finite values: tool x, y, z and gripper joint angle"
-            )
-        action = np.clip(
-            action, [0.2, -0.4, 0.18, 0.0], [0.8, 0.7, 0.8, GRIPPER_CLOSED]
-        )
+            raise ValueError("Expected four finite values: tool x, y, z and gripper joint angle")
+        action = np.clip(action, [0.2, -0.4, 0.18, 0.0], [0.8, 0.7, 0.8, GRIPPER_CLOSED])
         # Absolute world-space tool position; keep the gripper pointing down.
         setpoint = mg.RobotState(
             sites=mg.SpatialState.from_name(
@@ -187,18 +175,12 @@ class PickPlaceEnv:
         for substep in range(CONTROL_SUBSTEPS):
             time = (self.steps * CONTROL_SUBSTEPS + substep) * PHYSICS_DT
             desired = self.controller.forward(self._estimated_state(), setpoint, time)
-            if (
-                desired is None
-                or desired.joints is None
-                or desired.joints.positions is None
-            ):
+            if desired is None or desired.joints is None or desired.joints.positions is None:
                 raise RuntimeError("PINK failed to produce a joint target")
             self.robot.set_dof_position_targets(
                 desired.joints.positions, dof_indices=desired.joints.position_indices
             )
-            self.robot.set_dof_position_targets(
-                [action[3]], dof_indices=[self.finger_index]
-            )
+            self.robot.set_dof_position_targets([action[3]], dof_indices=[self.finger_index])
             self.app.update()
             self.lifted |= bool(self.cube.get_world_poses()[0].numpy()[0, 2] > 0.10)
         self.steps += 1
@@ -244,25 +226,20 @@ class PickPlaceEnv:
 
 
 class UR10ePickPlace(rlmesh.EnvFactory):
-    workflow_edition = "2026.06"
     params = rlmesh.ParamSpec(
         rlmesh.Param(
             "image_size",
             type="int",
             description="Square RGB camera resolution (at least 128).",
         ),
-        rlmesh.Param(
-            "max_steps", type="int", description="Control steps before truncation."
-        ),
+        rlmesh.Param("max_steps", type="int", description="Control steps before truncation."),
     )
     tags = adapt.EnvTags(
         observation={
             "image": adapt.ImageTag(adapt.IMAGE_PRIMARY),
             "joint_pos": adapt.StateTag(adapt.JOINT_POS),
             "eef_pos": adapt.StateTag(adapt.EEF_POS, frame="world"),
-            "eef_quat": adapt.StateTag(
-                adapt.EEF_ROT, encoding="quat_wxyz", frame="world"
-            ),
+            "eef_quat": adapt.StateTag(adapt.EEF_ROT, encoding="quat_wxyz", frame="world"),
             "gripper": adapt.StateTag(adapt.GRIPPER_POS, range=(0.0, GRIPPER_CLOSED)),
             "cube_pos": adapt.StateTag("x/cube_pos", frame="world"),
             "target_pos": adapt.StateTag("x/target_pos", frame="world"),
@@ -270,9 +247,7 @@ class UR10ePickPlace(rlmesh.EnvFactory):
         },
         action=adapt.Action(
             adapt.Actuator(adapt.ACTION_EEF_POS, dim=3, frame="world"),
-            adapt.Actuator(
-                adapt.ACTION_GRIPPER, dim=1, range=(0.0, GRIPPER_CLOSED), clip=True
-            ),
+            adapt.Actuator(adapt.ACTION_GRIPPER, dim=1, range=(0.0, GRIPPER_CLOSED), clip=True),
         ),
     )
 

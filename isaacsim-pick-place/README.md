@@ -16,19 +16,23 @@ NVIDIA container runtime. Allow 16 GB of container memory. Assets download from 
 so the container needs internet access. The Dockerfile sets NVIDIA's EULA and privacy-consent
 variables; review those terms before use.
 
-From the repository root:
+The container serves on every interface, so it needs a host identity: make one, pass it to the
+container, and dial the keyed address it prints.
 
 ```bash
 docker build -t rlmesh-examples/isaacsim-pick-place isaacsim-pick-place
-docker run --rm --gpus all --memory=16g -p 127.0.0.1:50051:50051 \
-  rlmesh-examples/isaacsim-pick-place
+cd isaacsim-pick-place
+uv run rlmesh host-identity new --out env.identity --address 127.0.0.1:7447 --participant env
+# prints address=127.0.0.1:7447#<key>/env
+RLMESH_HOST_IDENTITY="$(cat env.identity)" docker run --rm --gpus all --memory=16g \
+  -e RLMESH_HOST_IDENTITY -p 127.0.0.1:7447:7447 rlmesh-examples/isaacsim-pick-place
 ```
 
-Wait for `RLMesh serving env` in the container logs. In a second terminal, from the repository root:
+Wait for `RLMesh serving env` in the container logs. In a second terminal:
 
 ```bash
 cd isaacsim-pick-place
-uv run run.py --episodes 3 --check --record recordings/demo
+RLMESH_ENV_ADDRESS='127.0.0.1:7447#<key>/env' uv run run.py --episodes 3 --check --record recordings/demo
 ```
 
 The client prints each phase and the final success rate. `--check` exits with an error unless all
@@ -36,9 +40,7 @@ requested episodes succeed. `--record` writes a result bundle with camera video 
 open the MP4 under `recordings/demo/media` to replay the run. Omit `--record` when you only need the
 result. Add `--view http` to watch the camera live at `http://localhost:8008` while the episodes
 run, or `--view terminal` over SSH. The client needs `uv`, but no Isaac Sim installation or GPU.
-
-Use `--address HOST:PORT` for a remote server. Stop the container with Ctrl-C after the demo. Run
-one example at a time if they share port 50051.
+Stop the container with Ctrl-C after the demo.
 
 ## Walk through the adapter
 
@@ -87,16 +89,11 @@ horizontal axis.
 
 ## Check without a GPU
 
-From this directory:
-
-```bash
-uv run python -m unittest -v
-```
-
-These tests check image channels and normalization, rotation encoding, action ordering, and gripper
-scaling against the example's adapter declarations. They also check that the policy waits for the
-tool to arrive, follows the pickup and release sequence, and resets between episodes. Use the
-container run with `--check` to test grasping and release in physics.
+From the repository root, `uv run pytest isaacsim-pick-place` checks image channels and
+normalization, rotation encoding, action ordering, and gripper scaling against the example's adapter
+declarations, and that the policy waits for the tool to arrive, follows the pickup and release
+sequence, and resets between episodes. Use the container run with `--check` to test grasping and
+release in physics.
 
 ## Use another robot or policy
 
