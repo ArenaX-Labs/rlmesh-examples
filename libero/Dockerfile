@@ -8,7 +8,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 COPY pyproject.toml ./
-RUN uv sync --no-dev
+RUN uv sync --no-dev --group sim
 ENV PATH="/app/.venv/bin:$PATH" \
     MUJOCO_GL=osmesa \
     PYOPENGL_PLATFORM=osmesa
