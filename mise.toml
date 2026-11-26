@@ -4,13 +4,21 @@ uv = "0.11.19"
 node = "26"
 oxfmt = "0.53.0"
 
-[settings]
-python.uv_venv_auto = "create|source"
+[tasks.check]
+description = "Lint Python and check formatting"
+run = [
+  "uv run ruff check .",
+  "uv run ruff format --check .",
+  "git ls-files -z -- '*.md' '*.toml' '*.json' | xargs -0 oxfmt --check",
+]
 
-[tasks."fmt"]
-description = "Format all source files"
-depends = ["fmt:oxfmt"]
+[tasks.test]
+description = "Run the CPU tests"
+run = "uv run pytest"
 
-[tasks."fmt:oxfmt"]
-description = "Format Markdown, TOML, YAML, and JSON files with oxfmt"
-run = "git ls-files -z --cached --others --exclude-standard -- '*.md' '*.toml' '*.yml' '*.yaml' '*.json' '*.jsonc' | xargs -0 oxfmt --write"
+[tasks.fmt]
+description = "Format Python, Markdown, TOML and JSON files"
+run = [
+  "uv run ruff format .",
+  "git ls-files -z --cached --others --exclude-standard -- '*.md' '*.toml' '*.json' | xargs -0 oxfmt --write",
+]
