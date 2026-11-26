@@ -29,10 +29,16 @@ def openai_chat(model: str, max_tokens: int = DEFAULT_MAX_TOKENS) -> Chat:
     """Chat through the OpenAI-compatible server at ``$OPENAI_BASE_URL``."""
     from openai import OpenAI, omit
 
+    base_url = os.environ.get("OPENAI_BASE_URL", DEFAULT_BASE_URL)
+    api_key = os.environ.get("OPENAI_API_KEY", "ollama")
+    # Managed hands an Anthropic key over as ANTHROPIC_*; its OpenAI-compatible API is under /v1/.
+    if os.environ.get("ANTHROPIC_API_KEY"):
+        base_url = os.environ.get("ANTHROPIC_BASE_URL", "https://api.anthropic.com").rstrip("/") + "/v1/"
+        api_key = os.environ["ANTHROPIC_API_KEY"]
     # Messages and tools pass through as plain JSON, not the SDK's TypedDicts.
     client: Any = OpenAI(
-        base_url=os.environ.get("OPENAI_BASE_URL", DEFAULT_BASE_URL),
-        api_key=os.environ.get("OPENAI_API_KEY", "ollama"),
+        base_url=base_url,
+        api_key=api_key,
         timeout=STEP_BUDGET_S,
         max_retries=0,
     )

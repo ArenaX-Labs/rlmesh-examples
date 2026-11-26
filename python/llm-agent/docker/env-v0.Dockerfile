@@ -25,7 +25,12 @@ ENV ENV_ID=${ENV_ID} \
     RLMESH_OUTPUT_DIR=/rlmesh/output/env \
     RLMESH_ADDRESS=0.0.0.0:7447 \
     RLMESH_NAME=env \
-    RLMESH_READY_FILE=/tmp/rlmesh-ready.json
+    RLMESH_READY_FILE=/tmp/rlmesh-ready.json \
+    NLTK_DATA=/opt/nltk_data \
+    HF_HOME=/opt/hf
+# Fetch the task's data now: Managed envs cannot reach NLTK's or most other download hosts.
+RUN python -c "import verifiers as vf; vf.load_environment('${ENV_ID}').get_eval_dataset()" \
+    && mkdir -p /opt/nltk_data /opt/hf && chmod -R a+rwX /opt/nltk_data /opt/hf
 EXPOSE 7447
 HEALTHCHECK --interval=2s --start-period=300s CMD test -f /tmp/rlmesh-ready.json
 ENTRYPOINT ["python", "-m", "rlmesh.serve", "--env", "serve_v0:EnvironmentEnv"]
