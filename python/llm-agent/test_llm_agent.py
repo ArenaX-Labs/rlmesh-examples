@@ -624,6 +624,52 @@ def test_tictactoe_scores_both_seats(tmp_path: Path, monkeypatch: pytest.MonkeyP
     assert info["rewards"] == {"X": 0.0, "O": 0.0} and info["winner"] == "draw"
 
 
+def test_terminal_task_runs_tools_and_grades_with_hidden_tests(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("RLMESH_OUTPUT_DIR", str(tmp_path / "out"))
+    monkeypatch.syspath_prepend(str(HERE))
+    import terminal_env
+
+    task, work, logs = tmp_path / "task", tmp_path / "work", tmp_path / "logs"
+    (task / "tests").mkdir(parents=True)
+    work.mkdir()
+    (task / "name").write_text("terminal-bench/answer\n")
+    (task / "instruction.md").write_text("Put 42 in answer.txt.")
+    (task / "tests" / "test.sh").write_text(
+        f"grep -qx 42 answer.txt && echo 1 > {logs}/reward.txt || echo 0 > {logs}/reward.txt\n"
+    )
+    monkeypatch.setattr(terminal_env, "TASK_DIR", task)
+    monkeypatch.setattr(terminal_env, "TESTS_DIR", tmp_path / "tests")
+    monkeypatch.setattr(terminal_env, "VERIFIER_DIR", logs)
+    monkeypatch.chdir(work)
+
+    def act(*calls: tuple[str, dict[str, Any]]) -> tuple[Any, ...]:
+        tool_calls = [
+            {"id": f"c{i}", "type": "function", "function": {"name": n, "arguments": json.dumps(a)}}
+            for i, (n, a) in enumerate(calls)
+        ]
+        return env.step(json.dumps({"role": "assistant", "content": "", "tool_calls": tool_calls}))
+
+    env = terminal_env.TerminalTask()
+    obs, _ = env.reset(seed=0)
+    first = json.loads(obs)
+    assert "Put 42" in first["messages"][0]["content"]
+    assert [t["function"]["name"] for t in first["tools"]] == ["run_shell", "write_file", "submit"]
+
+    obs, _, done, _, _ = act(("write_file", {"path": "answer.txt", "content": "42\n"}),
+                             ("run_shell", {"command": "cat answer.txt; env"}))
+    results = json.loads(obs)["messages"]
+    assert not done and [m["tool_call_id"] for m in results] == ["c0", "c1"]
+    assert results[1]["content"].startswith("exit code 0\n42")
+    assert "RLMESH_OUTPUT_DIR" not in results[1]["content"]
+    assert not (tmp_path / "tests").exists()
+
+    _, reward, done, truncated, info = act(("submit", {}))
+    assert (reward, done, truncated, info["is_success"]) == (1.0, True, False, True)
+    assert info["task_id"] == "terminal-bench/answer" and info["turns"] == 2
+
+
 def test_render_draws_each_wordle_row_and_the_latest_turn(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
