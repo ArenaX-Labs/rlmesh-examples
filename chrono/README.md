@@ -105,7 +105,7 @@ both sides of the wire are native:
 ```bash
 build/chrono_reach_env --address 127.0.0.1:7447 &
 build/chrono_reach_model 127.0.0.1:7447 6
-# episodes=6 steps=67 terminated=6 truncated=0 mean_reward=-0.38
+# episodes=6 steps=54 mean_reward=-0.01
 ```
 
 The example reads `eef_pos` and `target_pos` by key. The C++17 API also supports typed adapter specs

@@ -24,9 +24,11 @@ int main(int argc, char** argv) try {
         return rlmesh::Tensor(action.data(), action.size() * sizeof(float), {3},
                               rlmesh::DType::Float32);
       },
-      rlmesh::ModelOptions{}.with_on_episode_end([](std::string_view id) {
-        std::printf("episode %.*s done\n", static_cast<int>(id.size()), id.data());
-      }));
+      rlmesh::ModelOptions{}
+          .with_spec(rlmesh::NO_ADAPTER)
+          .with_on_episode_end([](std::string_view id) {
+            std::printf("episode %.*s done\n", static_cast<int>(id.size()), id.data());
+          }));
   std::vector<int64_t> seeds;
   for (uint64_t i = 0; i < episodes; ++i) seeds.push_back(static_cast<int64_t>(7 + i));
   auto result =
