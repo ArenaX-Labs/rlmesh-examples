@@ -1,0 +1,9 @@
+[project]
+name = "coding-agent"
+version = "0.0.0"
+requires-python = ">=3.11"
+# The agent side; the LIBERO env side gets its own Python 3.10 venv (see README).
+dependencies = ["rlmesh[numpy]==0.2.0a2", "anthropic"]
+
+[tool.uv]
+package = false
