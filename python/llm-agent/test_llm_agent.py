@@ -630,7 +630,7 @@ def test_render_draws_each_wordle_row_and_the_latest_turn(
     monkeypatch.setenv("RLMESH_OUTPUT_DIR", str(tmp_path))
     monkeypatch.syspath_prepend(str(HERE))
     from chat_env import TicTacToeTask
-    from render import board
+    from render import _with_final_guess, board
 
     feedback = "\nC R A N E\nX G X X X\nYou have 5 guesses left."
     messages = [
@@ -639,6 +639,10 @@ def test_render_draws_each_wordle_row_and_the_latest_turn(
         {"role": "user", "content": "\nT R I O S\nY G Y X X\n"},
     ]
     assert board(messages) == [("CRANE", "XGXXX"), ("TRIOS", "YGYXX")]
+    won = [*messages, {"role": "assistant", "content": "<guess>[brass]</guess>"}]
+    won.append({"role": "user", "content": "Congratulations! You guessed the word correctly!"})
+    assert _with_final_guess(won, board(won), True)[-1] == ("BRASS", "GGGGG")
+    assert _with_final_guess(won, board(won), None) == board(won)
 
     env = TicTacToeTask()
     env.reset(seed=0)

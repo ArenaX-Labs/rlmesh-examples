@@ -63,6 +63,7 @@ class ChatTaskEnv:
         self.seed = 0
         self.task_id = ""
         self.history: list[Message] = []
+        self.success: bool | None = None
 
     def start(self, index: int) -> Turn:
         """Begin task ``index`` and return its prompt; set ``self.task_id``."""
@@ -78,6 +79,7 @@ class ChatTaskEnv:
         self.seed = seed or 0
         turn = self.start(self.seed)
         self.history = list(turn.messages)
+        self.success = None
         return _observation(turn), {"task_id": self.task_id}
 
     def step(self, action: str) -> tuple[str, float, bool, bool, dict[str, Any]]:
@@ -87,6 +89,7 @@ class ChatTaskEnv:
         if turn.rewards is None:
             return _observation(turn), 0.0, False, False, {}
         success = turn.reward >= 1.0 if turn.success is None else turn.success
+        self.success = success
         info = {
             **turn.info,
             "is_success": success,
@@ -102,7 +105,7 @@ class ChatTaskEnv:
         from render import frame  # The harness imports this module without Pillow.
 
         name = getattr(self, "env_id", None) or type(self).__name__
-        return frame(self.history, name, self.task_id)
+        return frame(self.history, name, self.task_id, self.success)
 
     def close(self) -> None:
         pass
