@@ -4,6 +4,9 @@
 #   docker build -f docker/env-v0.Dockerfile -t llm-env-mastermind --build-arg ENV_ID=mastermind .
 FROM python:3.11-slim
 COPY --from=ghcr.io/astral-sh/uv:0.11.0 /uv /uvx /bin/
+# render.py draws with these; without them it falls back to Pillow's own font.
+RUN apt-get update && apt-get install -y --no-install-recommends fonts-inter fonts-jetbrains-mono \
+    && rm -rf /var/lib/apt/lists/*
 
 ARG RLMESH_VERSION=0.2.0a2
 COPY requirements-v0.txt overrides-v0.txt .

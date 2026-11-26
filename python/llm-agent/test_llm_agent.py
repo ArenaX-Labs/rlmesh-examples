@@ -644,4 +644,4 @@ def test_render_draws_each_wordle_row_and_the_latest_turn(
     env.reset(seed=0)
     env.step(json.dumps({"role": "assistant", "content": "5"}))
     assert [m["role"] for m in env.history] == ["user", "assistant", "user"]
-    assert env.render().shape == (540, 960, 3)
+    assert env.render().shape == (720, 1280, 3)

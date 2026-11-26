@@ -3,6 +3,8 @@
 #   docker build -f docker/env-chat.Dockerfile -t llm-env-chat .
 FROM python:3.11-slim
 
+RUN apt-get update && apt-get install -y --no-install-recommends fonts-inter fonts-jetbrains-mono \
+    && rm -rf /var/lib/apt/lists/*
 ARG RLMESH_VERSION=0.2.0a2
 RUN pip install --no-cache-dir "rlmesh==${RLMESH_VERSION}" pillow
 

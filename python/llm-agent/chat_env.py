@@ -102,7 +102,7 @@ class ChatTaskEnv:
         from render import frame  # The harness imports this module without Pillow.
 
         name = getattr(self, "env_id", None) or type(self).__name__
-        return frame(self.history, f"{name} · task {self.task_id}")
+        return frame(self.history, name, self.task_id)
 
     def close(self) -> None:
         pass
