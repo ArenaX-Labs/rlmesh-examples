@@ -1,97 +1,76 @@
 # Hello Env
 
-A small Gymnasium environment served through RLMesh. The policy walks left or right until it reaches
-a target. Use this example as a starting point for your own environment container.
+A small Gymnasium env served through RLMesh and driven by a hand-written policy: the serve, build
+and run loop every other example builds on.
 
-| File           | Purpose                                                            |
-| -------------- | ------------------------------------------------------------------ |
-| `hello_env.py` | `LineWalk`, the environment, and `HelloEnv`, its factory           |
-| `Dockerfile`   | Installs dependencies and serves `hello_env:HelloEnv` on port 7447 |
-| `run.py`       | Runs five episodes with a policy that moves toward the target      |
-
-Hardware: CPU. Docker for the container steps.
-
-## Run without Docker
+## Run it
 
 ```bash
-cd python/hello-env
-RLMESH_ADDRESS=127.0.0.1:7447 uv run python -m rlmesh.serve --env hello_env:HelloEnv
+uv run --directory python/hello-env python -m rlmesh.serve --env hello_env:HelloEnv --address 127.0.0.1:7447
+uv run --directory python/hello-env run.py    # in a second terminal
 ```
 
-Wait for `RLMesh serving env`, then leave the server running. In a second terminal:
-
-```bash
-cd python/hello-env
-uv run run.py
-```
-
-The client prints `episodes=5`, a mean reward, and a step count. Rewards and steps vary because each
-episode starts at random positions. Stop the server with Ctrl-C.
-
-## Build and run the container
+It prints `episodes=5 mean_reward=0.97 steps=22` (episodes start at random positions, so the numbers
+vary). The same env as an image, which RLMesh starts as a sandbox and removes afterwards:
 
 ```bash
 docker build -t rlmesh-examples/hello-env python/hello-env
-cd python/hello-env
-uv run run.py --image rlmesh-examples/hello-env
+uv run --directory python/hello-env run.py --image rlmesh-examples/hello-env
 ```
 
-`--image` starts the image as an `rlmesh.SandboxEnv`: RLMesh runs the container, gives it a session
-key, connects to it, and removes it when the run ends. The policy is the same; the environment now
-runs inside Docker. To start the container yourself instead, see
-[running the container yourself](../byo-container/#running-the-container-yourself).
+## The RLMesh part
 
-## How the factory works
+`LineWalk` is a plain `gym.Env`. A factory makes it, with its parameters and named presets
+([`hello_env.py`](hello_env.py)):
 
-`HelloEnv.make()` returns an environment wrapped in Gymnasium's `TimeLimit`. RLMesh serves the
-factory through this Dockerfile command:
+```python
+class HelloEnv(rlmesh.EnvFactory):
+    params = rlmesh.ParamSpec(
+        rlmesh.Param(
+            "size", type="int", description="Distance between the endpoints (at least 1)."
+        ),
+    )
 
-```dockerfile
-CMD ["python", "-m", "rlmesh.serve", "--env", "hello_env:HelloEnv"]
+    @classmethod
+    def enumerate_variants(cls):
+        yield rlmesh.Variant("short", {"size": 5}, name="Short line")
+        yield rlmesh.Variant("long", {"size": 50}, name="Long line")
+
+    def make(self, *, size: int = 10) -> gym.Env:
+        return gym.wrappers.TimeLimit(LineWalk(size), max_episode_steps=4 * size)
 ```
 
-| Factory member         | Purpose                                                                    |
-| ---------------------- | -------------------------------------------------------------------------- |
-| `params`               | Describes construction parameters; defaults live in the `make()` signature |
-| `enumerate_variants()` | Publishes named presets, here `short` and `long`                           |
-| `make()`               | Creates a Gymnasium-style environment                                      |
+The [`Dockerfile`](Dockerfile) serves it with
+`CMD ["python", "-m", "rlmesh.serve", "--env", "hello_env:HelloEnv"]`. The client is a function and
+one `run` call ([`run.py`](run.py)):
 
-To serve a different line size, pass construction parameters as JSON:
+```python
+def predict(obs):
+    pos, target = obs
+    return 1 if target > pos else 0
 
-```bash
-RLMESH_MAKE_KWARGS='{"size": 50}' RLMESH_ADDRESS=127.0.0.1:7447 \
-  uv run python -m rlmesh.serve --env hello_env:HelloEnv
+
+model = Model(predict)
+if args.image:
+    with SandboxEnv(f"image://{args.image}") as env:
+        result = model.run(env, episodes=args.episodes)
+else:
+    result = model.run(args.address, episodes=args.episodes)
 ```
 
-To inspect the factory's description without starting a server:
+## Needs
 
-```bash
-docker run --rm rlmesh-examples/hello-env rlmesh describe hello_env:HelloEnv
-```
+CPU. Docker for the image.
 
-## Make it yours
+## Next
 
-Replace `LineWalk` with your environment, or return `gym.make(...)` from `make()`. Add its
-dependencies to `pyproject.toml` and rebuild the image. Keep the same RLMesh version in the image
-and the client.
-
-## Run on RLMesh Managed
-
-Sign in from `python/hello-env/`:
-
-```bash
-uv run rlmesh login
-uv run rlmesh registry login
-```
-
-Build for the Managed architecture, then tag and push the image under your organization's namespace
-(shown in the Managed dashboard):
-
-```bash
-docker build --platform linux/amd64 -t rlmesh-examples/hello-env python/hello-env
-docker tag rlmesh-examples/hello-env registry.rlmesh.dev/your-namespace/hello-env:latest
-docker push registry.rlmesh.dev/your-namespace/hello-env:latest
-```
-
-Managed sets `RLMESH_ADDRESS` and the session key itself. Wait for the image's probe to pass under
-Registry before selecting it for an evaluation. `run.py` is a local client, not a model image.
+- Make it yours: replace `LineWalk` or return `gym.make(...)` from `make()`, and add its
+  dependencies to `pyproject.toml`.
+- `RLMESH_MAKE_KWARGS='{"size": 50}'` serves another size;
+  `docker run --rm rlmesh-examples/hello-env rlmesh describe hello_env:HelloEnv` prints the params
+  and variants.
+- Run it on RLMesh Managed: `uv run rlmesh login` and `uv run rlmesh registry login`, build with
+  `--platform linux/amd64`, then tag and push `registry.rlmesh.dev/<namespace>/hello-env:latest`.
+  Managed sets the address and session key itself; select the image once its probe passes.
+- [`byo-container`](../byo-container/): write the Dockerfile and entrypoint yourself, for an env and
+  a model.

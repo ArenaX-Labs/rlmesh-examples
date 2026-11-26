@@ -1,33 +1,22 @@
-# Project Chrono env in native C++
+# Project Chrono in native C++
 
-[Project Chrono](https://projectchrono.org/)'s six-axis industrial robot (`IndustrialRobot6dof`)
-reaches a target, simulated by Chrono in C++ and served as an RLMesh environment through the
-[C ABI](https://github.com/ArenaX-Labs/rlmesh/tree/main/crates/rlmesh-capi), which builds from the
-rlmesh release tag. There is no Python in the env. A Python model drives it like any other RLMesh
-env, and RLMesh adapts between the two from the tags the C++ env publishes.
+[Project Chrono](https://projectchrono.org/)'s six-axis industrial robot reaches a target, simulated
+and served from C++ through the RLMesh
+[C ABI](https://github.com/ArenaX-Labs/rlmesh/tree/main/crates/rlmesh-capi), with no Python in the
+env. A Python model drives it like any other RLMesh env, and RLMesh adapts between them from the
+tags the C++ env publishes.
 
-- **Simulation.** Chrono integrates the robot's multibody dynamics at 200 Hz under gravity. Each env
-  step runs 50 ms of it. The action moves the tool target, Chrono's analytic inverse kinematics
-  turns that into joint setpoints, and the motors drive the arm there.
-- **Observation.**
-  - `image`: a 256×256 RGB camera, ray-traced on the CPU, so it works headless and in a container.
-    `--renderer vulkan` draws it with Vulkan instead (see [Vulkan camera](#vulkan-camera)).
-  - `joint_pos`, `joint_vel`, `joint_torque`: the motors' angles, rates, and Chrono's reaction
-    torques.
-  - `eef_pos`, `target_pos`: the tool and target positions.
-  - `instruction`: the task text.
-- **Action.** A 3-D tool delta in [-1, 1], up to 2 cm per step.
-- **Episodes.** An episode succeeds (`info["is_success"]`) when the tool is within 2.5 cm of the
-  target. It truncates at 120 steps.
-- **Seeding.** `reset(seed=…)` and the `trial_index` reset option pick the target, so a seeded run
-  is reproducible.
-- **Rendering.** `render()` returns 480×480 frames for viewers.
+<!-- TODO: record media/reach.gif (the env's render() frames over a few scripted episodes, e.g. via --view http:9000) and embed it here. -->
 
-The env tags its spaces with adapter roles (`image/primary`, `proprio/eef_pos`, `proprio/joint_pos`,
-`text/instruction`, `action/delta_eef_pos`, …). The tags are validated against the spaces when the
-env starts, exactly as Python's `rlmesh.EnvServer(tags=...)` does. `run_model.py` declares a model
-that wants a 224×224 image, one proprio vector, the goal, and the instruction under its own keys,
-and prints the adapter RLMesh resolves between them:
+## Run it
+
+```bash
+docker build -t chrono-reach:dev cpp/chrono
+uv run --directory cpp/chrono run_model.py --image chrono-reach:dev
+```
+
+It prints the adapter RLMesh resolved between the env's tags and the model's spec, then the episodes
+(`episodes=4 steps=37 success_rate=1.0`):
 
 ```text
 observation:
@@ -40,130 +29,80 @@ action:
   clip to (-1.0, 1.0)
 ```
 
-## Run it locally
+## The RLMesh part
 
-Hardware: CPU (a GPU only for the optional Vulkan camera). You need a Rust toolchain and `protoc` to
-build the RLMesh C ABI, and a Chrono install. The core plus its bundled `ChronoModels_robot` library
-is enough; no visualization module is needed. Build Chrono 10 with `BUILD_DEMOS=OFF`, and pass
-`-DCMAKE_DISABLE_FIND_PACKAGE_Thrust=ON -DCMAKE_CUDA_COMPILER=` when a CUDA toolkit is installed:
-the CPU-only core does not need it, and the multicore math does not compile against a recent CCCL.
-The `Dockerfile` has the exact recipe.
+The env is a C++ class with spaces, `reset` and `step`, served with its tags
+([`src/reach_env.cpp`](src/reach_env.cpp), [`src/main.cpp`](src/main.cpp)):
 
-```bash
-CHRONO_DIR=~/opt/chrono EIGEN_DIR=~/opt/eigen cpp/chrono/demo.sh --episodes 8
+```cpp
+rlmesh::spaces::Space IndustrialReach::observation_space() const {
+  using namespace rlmesh::spaces;
+  ...
+  return Dict(
+      {{"image", Box(0, 255, {size, size, 3}, BoxOptions{}.with_dtype(rlmesh::DType::Uint8))},
+       {"joint_pos", Box(-inf, inf, {6})},
+       {"joint_vel", Box(-inf, inf, {6})},
+       {"joint_torque", Box(-inf, inf, {6})},
+       {"eef_pos", Box(-inf, inf, {3})},
+       {"target_pos", Box(-inf, inf, {3})},
+       {"instruction", Text(128)}});
+}
+
+rlmesh::EnvServer server(chrono_reach::IndustrialReach(options, std::move(renderer)),
+                         rlmesh::EnvServerOptions{}
+                             .with_address(describe ? ":0/env" : address)
+                             .with_tags(chrono_reach::IndustrialReach::tags()));
+server.serve();
 ```
 
-`demo.sh` clones rlmesh at the pinned tag into `cpp/chrono/.rlmesh` (or uses `RLMESH_DIR`), builds
-`rlmesh-capi` there, configures this CMake project against it, serves the env on `127.0.0.1:7447`,
-and runs `run_model.py`. The C ABI and the `rlmesh` wheel `pyproject.toml` pins come from the same
-release, so both sides speak the same session wire revision.
+The Python model declares the layout its checkpoint wants and never sees the env's
+([`run_model.py`](run_model.py)):
 
-- **Live viewer.** Add `--view http:9000` and open <http://localhost:9000>.
-- **Random policy.** `--policy random` swaps the scripted policy for a random one.
-
-To run the pieces separately, from `cpp/chrono/` after `demo.sh` has built them:
-
-```bash
-build/chrono_reach_env --address 127.0.0.1:7447     # Ctrl-C stops it cleanly
-uv run run_model.py 127.0.0.1:7447 --view http:9000
+```python
+MODEL_SPEC = adapt.ModelSpec(
+    input={
+        "image": adapt.Image(adapt.IMAGE_PRIMARY, size=224),
+        "proprio": adapt.Concat(adapt.EEF_POS, adapt.JOINT_POS),
+        "goal": adapt.Concat("x/target_pos"),
+        "task": adapt.Text(adapt.INSTRUCTION),
+    },
+    output=adapt.Action(adapt.Actuator(adapt.ACTION_DELTA_POS, dim=3)),
+)
+model = Model(make_policy(args.policy, args.seed, pace), spec=MODEL_SPEC)
 ```
 
-## Vulkan camera
+Chrono integrates the robot at 200 Hz; each step runs 50 ms of it, and Chrono's inverse kinematics
+turns the 3-D tool delta into joint setpoints. The camera is ray-traced on the CPU, so it works
+headless.
 
-`--renderer vulkan` swaps the CPU ray tracer for an offscreen Vulkan rasterizer that draws the same
-scene: instanced sphere and cylinder meshes, a shadow map for the ray tracer's shadow rays, and the
-frame copied back to host memory. It needs no window or display server, and it serves both the
-`image` observation and `render()` frames with the same shapes and dtype, so models and viewers see
-no difference. Frames match the ray tracer's to within a fraction of a percent of pixels, at shadow
-and silhouette edges.
+## Needs
 
-It is opt in at build time: configure with `-DCHRONO_REACH_VULKAN=ON`, which needs the Vulkan
-headers and loader (`libvulkan.so`) and `glslangValidator` to compile the shaders. `demo.sh` does
-this with `RENDERER=vulkan`:
+CPU and Docker. The image builds Chrono and the C ABI (from rlmesh at `RLMESH_REF`, default the
+pinned tag), so the first build takes a while.
 
-```bash
-RENDERER=vulkan CHRONO_DIR=~/opt/chrono EIGEN_DIR=~/opt/eigen VULKAN_DIR=~/opt/vulkan cpp/chrono/demo.sh
-```
+## Next
 
-The renderer picks a discrete GPU, then an integrated one, then a CPU implementation. Force Mesa's
-lavapipe with `VK_DRIVER_FILES=/usr/share/vulkan/icd.d/lvp_icd.x86_64.json`. The env prints the
-device it picked (`camera: vulkan (NVIDIA GeForce RTX 3080 Ti, discrete GPU)`), and each step's
-`info["observe_ms"]` times the camera.
+- **No Python at all:** [`src/scripted_model.cpp`](src/scripted_model.cpp) is the same policy
+  against `rlmesh.hpp`'s `Model`; run `chrono_reach_model 127.0.0.1:7447 6` against
+  `chrono_reach_env --address 127.0.0.1:7447`.
+- **On the host:** `CHRONO_DIR=~/opt/chrono EIGEN_DIR=~/opt/eigen cpp/chrono/demo.sh --episodes 8`
+  builds the C ABI (Rust toolchain and `protoc`) and this project against a Chrono 10 install (core
+  plus `ChronoModels_robot`, `BUILD_DEMOS=OFF`; with a CUDA toolkit installed also
+  `-DCMAKE_DISABLE_FIND_PACKAGE_Thrust=ON -DCMAKE_CUDA_COMPILER=`), serves the env and runs the
+  model. Add `--view http:9000` for a live viewer.
+- **Vulkan camera:** `--renderer vulkan` (built with `-DCHRONO_REACH_VULKAN=ON`, or
+  `--build-arg VULKAN=ON` for the image, or `RENDERER=vulkan` for `demo.sh`) draws the same frames
+  offscreen on a GPU, or on lavapipe. `ctest --test-dir cpp/chrono/build` checks it against the ray
+  tracer.
+- **RLMesh Managed:** the image serves on `$RLMESH_ADDRESS` under `RLMESH_HOST_IDENTITY` and drains
+  on SIGTERM. To describe it before it runs, bake the envelope as a label from the built image, then
+  check it:
 
-The Vulkan build also makes `chrono_reach_render_test` (`ctest --test-dir cpp/chrono/build` runs
-it). It renders scenes far larger than the robot's, so the instance buffer grows past its initial
-256 instances three times, at several frame sizes, checks each frame against the ray tracer, and
-checks that refused frame sizes leave the renderer working. Run it under the Khronos validation
-layer with `VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation` (add `VK_ADD_LAYER_PATH` when the layer
-is not installed system-wide).
+  ```bash
+  describe="$(docker run --rm chrono-reach:dev --describe)"
+  docker build -t chrono-reach:dev --label dev.rlmesh.describe="$describe" cpp/chrono
+  uv run --directory cpp/chrono rlmesh check-image chrono-reach:dev
+  ```
 
-## No Python at all
-
-`chrono_reach_model` is the same scripted policy written in C++ against `rlmesh.hpp`'s `Model`, so
-both sides of the wire are native:
-
-```bash
-build/chrono_reach_env --address 127.0.0.1:7447 &
-build/chrono_reach_model 127.0.0.1:7447 6
-# episodes=6 steps=54 mean_reward=-0.01
-```
-
-The example reads `eef_pos` and `target_pos` by key. The C++17 API also supports typed adapter specs
-when a policy needs semantic adaptation.
-
-## Run it as a container
-
-```bash
-docker build -t chrono-reach:dev cpp/chrono
-cd cpp/chrono
-uv run run_model.py --image chrono-reach:dev
-```
-
-`--image` starts the image as an `rlmesh.SandboxEnv`, which passes the container its address and
-host identity and removes it when the run ends.
-
-The image holds just the binary, `librlmesh_capi.so` and Chrono's shared libraries. It serves on
-`$RLMESH_ADDRESS` (default `0.0.0.0:7447`) under the host identity in `RLMESH_HOST_IDENTITY`, and
-drains and closes on SIGTERM, so the same image runs on RLMesh Managed:
-
-```bash
-docker tag chrono-reach:dev registry.rlmesh.dev/<namespace>/chrono-reach:v1
-docker push registry.rlmesh.dev/<namespace>/chrono-reach:v1
-```
-
-The env publishes its describe envelope (spaces and tags) on the handshake when it binds, so the
-platform can read the image as it is. To describe the image before it runs, bake the envelope as its
-`dev.rlmesh.describe` label. A `LABEL` cannot run the binary, so print the envelope from the built
-image and rebuild with it; the second build reuses every cached layer:
-
-```bash
-describe="$(docker run --rm chrono-reach:dev --describe)"
-docker build -t chrono-reach:dev --label dev.rlmesh.describe="$describe" cpp/chrono
-uv run --project cpp/chrono rlmesh check-image chrono-reach:dev
-```
-
-Generate it from the image rather than a local build: the envelope records the machine it ran on,
-and the platform fails a label whose `os` is not `linux`. Pass the same `--image-size`/`--max-steps`
-the image serves with, since they change the spaces.
-
-For the Vulkan camera, build with `--build-arg VULKAN=ON` and serve with `--renderer vulkan` (pass
-it to `--describe` too: the env reports its renderer in its metadata). The image carries the Vulkan
-loader and lavapipe, so it renders on the CPU anywhere and on the GPU when one is attached:
-
-```bash
-docker build --build-arg VULKAN=ON -t chrono-reach:vulkan cpp/chrono
-```
-
-## Layout
-
-- `src/reach_env.{h,cpp}`: the Chrono scene, the detected C++17 env, and its spaces and tags.
-- `src/scene.h`: the camera's scene, shared by both renderers.
-- `src/renderer.{h,cpp}`: the renderer interface and `--renderer` backends.
-- `src/raytracer.h`: the CPU camera.
-- `src/vulkan_renderer.cpp`, `shaders/`: the Vulkan camera.
-- `src/render_test.cpp`: the Vulkan camera's test against the ray tracer.
-- `src/main.cpp`: arguments, `rlmesh::EnvServer`, `--describe`, and signal handling.
-- `src/scripted_model.cpp`: the scripted policy as a C++ model.
-- `run_model.py`: the Python model, with its `ModelSpec` and a scripted or random policy.
-
-The native wrapper requires C++17 and exceptions.
+  Pass the same `--image-size`, `--max-steps` and `--renderer` to `--describe` as the image serves
+  with.

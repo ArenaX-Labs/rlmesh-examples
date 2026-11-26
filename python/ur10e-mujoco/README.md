@@ -1,64 +1,94 @@
-# MuJoCo UR10e: a policy, keyboard teleop pre-emption and an MCAP recording
+# MuJoCo UR10e with teleop takeover
 
-A [real-time session](https://github.com/ArenaX-Labs/rlmesh/blob/main/docs/realtime.md) with three
-participants:
+A real-time session: a simulated UR10e at 1 kHz, a policy streaming action chunks, and an operator
+who takes the arm over and hands it back, all recorded to MCAP.
 
-- **robot** (this process): the session host, an MCAP recorder, and a simulated UR10e. Physics and
-  the edge tick at 1 kHz: each tick publishes `arm` (pos, vel, effort) and `wrist/ft`, applies what
-  `robot.due("arm")` returns, and steps MuJoCo. A second thread renders the wrist camera offscreen
-  (640x480 u8, 20 Hz, JPEG on the wire).
-- **policy** (a child process): a scripted reach that reads the joints, the newest 10 ms of the 1
-  kHz wrist force/torque (`history: 10`) and the wrist camera, and sends 12 x 1 ms chunks at 100 Hz
-  through `Policy.run`. `--policy reach` drops the force window.
-- **operator** (a child process): teleop at `operator` class (`--operator haptic`: 1 kHz with the
-  wrench every sample and one-action chunks). Taking over pre-empts the policy's lease; the edge
-  fences the policy's chunks and holds its last target until the operator's first chunk. A preempted
-  policy stays parked; handing back (`release(to="model")`) resumes it, and it re-requests the lease
-  under a fresh token. Were the operator to let go plainly, or its process to die, the policy would
-  stay stopped.
+![The UR10e sweeping the table under the policy, then the operator, then the policy again](media/teleop-takeover.gif)
 
 ## Run it
 
-Hardware: CPU (a GPU speeds up the wrist camera). From `python/ur10e-mujoco/`:
-
-```sh
-uv run run.py --seconds 10
+```bash
+uv run --directory python/ur10e-mujoco run.py --seconds 10
 ```
 
-The default run is headless and scripted: the operator takes over at 40% of the run, jogs
-`wrist_1_joint` and `shoulder_pan_joint`, and hands back at 65%. At the end the demo reads the
-recording back and prints a report: chunk ages per lease holder, hold ticks, misses, commands
-applied per second, the takeover and hand-back as the robot saw them, and the MCAP check. `--json`
-prints the full report; the exit code is non-zero when a check fails.
+The default run is headless and scripted: the operator takes over at 40% of the run, jogs two joints
+and hands back at 65%. The demo then reads the recording back and prints chunk ages per lease
+holder, hold ticks, misses, the takeover and hand-back as the robot saw them, and the MCAP check;
+`--json` prints the full report, and the exit code is non-zero when a check fails.
+`--keys interactive` lets you drive it from the terminal (`t` take over or hand back, `1`-`6` pick a
+joint, `+`/`-` jog it).
 
-| Option                   | Default    |                                                                                                                                                                                                                                 |
-| ------------------------ | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--keys`                 | `scripted` | `interactive` reads the terminal: `t` take over / hand back, `1`-`6` pick a joint, `+`/`-` jog it 0.1 rad, `q` quit. `none` runs the policy alone. Or a script, `"2.0:t,2.3:4,2.4:+,5.0:t"` (seconds after the operator binds). |
-| `--camera`               | `jpeg`     | `raw` (u8 on the wire) or `off`.                                                                                                                                                                                                |
-| `--replan-hz`, `--chunk` | 100, 12    | The policy's replan rate and chunk length in 1 ms actions (the chunk covers a replan period plus the link).                                                                                                                     |
-| `--record`               | a temp dir | The MCAP file.                                                                                                                                                                                                                  |
-| `--view`                 | off        | MuJoCo's passive viewer (needs a display).                                                                                                                                                                                      |
+## The RLMesh part
 
-One role per terminal works too: `run.py robot --seconds 120` prints the session address, then
-`run.py policy --address ADDR` and `run.py operator --address ADDR --keys interactive`.
+The robot declares its parts once; the edge publishes them each tick and applies what is due
+([`run.py`](run.py)):
 
-Rendering uses EGL (`MUJOCO_GL=egl`); without a GPU, Mesa's llvmpipe renders a frame in about 10 ms
-on two threads (`LP_NUM_THREADS=2`, set by the demo). `--camera off` needs no OpenGL at all.
+```python
+"arm": parts.joints(
+    UR_JOINTS,
+    fields=["pos", "vel", "effort"],
+    hz=CONTROL_HZ,
+    command="position",
+    safe=parts.Safe.STOP,
+    hold_max_ms=100,
+    max_action_age_ms=1000,
+    limits={"pos": [-6.283, 6.283]},
+),
+"wrist/ft": parts.wrench(frame="tool0", hz=CONTROL_HZ),
+...
+due = robot.due("arm")
+if due is not None and isinstance(due.value, np.ndarray):
+    data.ctrl[:] = due.value
+```
 
-## The recording
+The policy reads joints, a 10 ms force window and the wrist camera, and returns 12 x 1 ms chunks at
+100 Hz:
 
-`rlmesh.realtime.SessionRecorder` attaches as an observer and writes each envelope as it travelled:
-`/ur10e/{path}` samples, `/ur10e/arm/_applied` (what the edge dispatched each tick),
-`/ur10e/arm/_chunks` (every chunk sent to the edge), `/_session/authority` and `/_session/bindings`.
-Schemas are the `rlmesh.session.v2` protobuf descriptors, so Foxglove and the `mcap` tools read it.
-`rlmesh.realtime.read_recording(path)` counts messages per topic, checks time order and decoding,
-and lists the lease timeline.
+```python
+with realtime.Policy(
+    hz=args.replan_hz,
+    inputs=policy_inputs(args),
+    actions={"arm": arm_action(chunk=args.chunk)},
+    allow=["resize", "pad"],
+    session=args.address,
+    name="policy",
+) as policy:
+    policy.bind(ROBOT)
+    stats = policy.run(predict, duration=args.seconds)
+```
 
-## The model
+The operator joins at `operator` priority. Acquiring the lease pre-empts the policy, whose chunks
+the edge fences; releasing to the model resumes it:
 
-`ur10e.xml` is derived from
-[MuJoCo Menagerie](https://github.com/google-deepmind/mujoco_menagerie)'s `universal_robots_ur10e`
-(BSD-3-Clause, see `LICENSE-ur10e`): the same kinematics, inertials, joints and position actuators,
-drawn with its collision shapes instead of meshes, plus a floor, a table, cameras and a wrist
-force/torque sensor. `--model` loads another MJCF with the same joint names, such as Menagerie's own
-`ur10e.xml` with its meshes.
+```python
+with realtime.Policy(
+    operator_map(args), session=args.address, name="operator", priority="operator"
+) as op:
+    op.bind(ROBOT)
+    op.acquire()
+    op.send({"arm": chunk.astype(np.float32)}, op.observe())
+    op.release(to="model")
+```
+
+`realtime.SessionRecorder(record, session=host)` writes every envelope as it travelled, readable by
+Foxglove and the `mcap` tools.
+
+## Needs
+
+CPU. The wrist camera renders with EGL (`MUJOCO_GL=egl`; Mesa's llvmpipe is enough) and
+`--camera off` needs no OpenGL. `--view` opens MuJoCo's viewer on a display.
+
+## Next
+
+- One role per terminal: `run.py robot --seconds 120` prints the session address, then
+  `run.py policy --address ADDR` and `run.py operator --address ADDR --keys interactive`.
+- `--operator haptic` runs the operator at 1 kHz with one-action chunks; `--replan-hz` and `--chunk`
+  tune the policy; `--camera raw` sends uncompressed frames.
+- The recording's topics: `/ur10e/{path}` samples, `/ur10e/arm/_applied` (what the edge dispatched
+  each tick), `/ur10e/arm/_chunks`, `/_session/authority` and `/_session/bindings`;
+  `rlmesh.realtime.read_recording(path)` checks and summarises it.
+- [`ur10e.xml`](ur10e.xml) is derived from
+  [MuJoCo Menagerie](https://github.com/google-deepmind/mujoco_menagerie)'s `universal_robots_ur10e`
+  (BSD-3-Clause, [`LICENSE-ur10e`](LICENSE-ur10e)); `--model` loads another MJCF with the same joint
+  names. The [real-time docs](https://github.com/ArenaX-Labs/rlmesh/blob/main/docs/realtime.md)
+  cover the session model.

@@ -1,55 +1,49 @@
-# Stack Conflict
+# Stack conflict
 
-A pretrained SAC policy evaluates a safety env it cannot share a virtual environment with.
+A pretrained SAC policy evaluated on a Safety-Gymnasium env it cannot share a Python environment
+with: each side keeps its own stack, and RLMesh carries observations and actions between them.
 
-The Stable-Baselines3 SAC checkpoint was trained on Gymnasium 1.x, MuJoCo 3 and NumPy 2.
-Safety-Gymnasium 1.0.0 pins Gymnasium 0.28.1, MuJoCo 2.3.3 and Python 3.10. Each side gets its own
-Python, and RLMesh carries observations and actions between them.
-
-| Piece        | Stack                                                               | Role                                                |
-| ------------ | ------------------------------------------------------------------- | --------------------------------------------------- |
-| `sim-safety` | Safety-Gymnasium 1.0.0, Gymnasium 0.28.1, MuJoCo 2.3.3, Python 3.10 | serves `env:HalfCheetahSafety`                      |
-| `agent`      | Stable-Baselines3 SAC, Gymnasium 1.x, MuJoCo 3, Python 3.11         | runs `HalfCheetah-v5` here, the safety env remotely |
-
-```text
-sim-safety (Python 3.10)            agent/run.py (Python 3.11)
-Safety-Gymnasium / MuJoCo 2.3       SAC checkpoint, Gymnasium / MuJoCo 3
-        <------------------------>  RemoteEnv
-```
-
-Hardware: CPU. Docker for the container.
-
-## Run
-
-Build the safety env image and run the agent against it as a sandbox:
+## Run it
 
 ```bash
 docker build -t rlmesh-examples/stack-conflict-safety python/stack-conflict/sim-safety
-cd python/stack-conflict/agent
-uv run run.py --image rlmesh-examples/stack-conflict-safety
+uv run --directory python/stack-conflict/agent run.py --image rlmesh-examples/stack-conflict-safety
 ```
-
-Or serve the env on the host, with OSMesa or EGL for MuJoCo's renderer:
-
-```bash
-cd python/stack-conflict/sim-safety
-MUJOCO_GL=egl RLMESH_ADDRESS=127.0.0.1:7447 uv run python -m rlmesh.serve --env env:HalfCheetahSafety
-```
-
-and run `uv run run.py` from `python/stack-conflict/agent` in a second terminal.
 
 ```text
 modern-halfcheetah-v5        steps= 100 return=   310.7 cost=   0.0
 safety-halfcheetah-velocity  steps= 100 return=   327.7 cost=  63.0
 ```
 
-| Signal             | Meaning                                                                                  |
-| ------------------ | ---------------------------------------------------------------------------------------- |
-| One checkpoint     | The policy loads once, in the stack it was trained on.                                   |
-| Two returns        | The tasks and simulator stacks differ; this does not isolate simulator drift.            |
-| Safety `cost` only | Safety-Gymnasium reports a constraint cost in `info["cost"]`; `HalfCheetah-v5` does not. |
+The checkpoint loads once, in the stack it was trained on, and runs `HalfCheetah-v5` locally and the
+safety env remotely. The two tasks differ, so the returns do not isolate simulator drift; only
+Safety-Gymnasium reports a constraint `cost`.
 
-## Why one Python fails
+## The RLMesh part
+
+The safety side is a factory in Python 3.10 with Gymnasium 0.28 and MuJoCo 2.3
+([`sim-safety/env.py`](sim-safety/env.py)):
+
+```python
+class HalfCheetahSafety(rlmesh.EnvFactory):
+    def make(self):
+        env = safety_gymnasium.make("SafetyHalfCheetahVelocity-v1", render_mode="rgb_array")
+        return SafetyGymnasium2Gymnasium(env)
+```
+
+The agent, in Python 3.11 with Gymnasium 1.x, MuJoCo 3 and NumPy 2, steps the remote env like a
+local one ([`agent/run.py`](agent/run.py)):
+
+```python
+model = SAC.load(CHECKPOINT, device="cpu")
+with gym.make("HalfCheetah-v5") as env:
+    print(f"modern-halfcheetah-v5        {rollout(env, model, **run)}")
+remote = SandboxEnv(f"image://{args.image}") if args.image else RemoteEnv(args.address)
+with remote as env:
+    print(f"safety-halfcheetah-velocity  {rollout(env, model, **run)}")
+```
+
+One Python cannot hold both:
 
 ```text
 $ uv pip install "stable-baselines3>=2.7" "safety-gymnasium==1.0.0"
@@ -58,11 +52,18 @@ $ uv pip install "stable-baselines3>=2.7" "safety-gymnasium==1.0.0"
     and safety-gymnasium==1.0.0 depends on gymnasium==0.28.1
 ```
 
-The older SB3 that fits beside Safety-Gymnasium resolves to NumPy 1.23.5, which cannot load a
-checkpoint saved with NumPy 2 (`ModuleNotFoundError: No module named 'numpy._core'`).
+and the older SB3 that fits beside Safety-Gymnasium resolves to NumPy 1.23.5, which cannot load a
+checkpoint saved with NumPy 2.
 
-## The checkpoint
+## Needs
 
-`agent/models/sac-halfcheetah-v5-modern.zip` comes from `agent/train.py` (see
-[`agent/models/README.md`](agent/models/README.md)). Retrain it with `uv run train.py` from
-`python/stack-conflict/agent`.
+CPU. Docker for the image.
+
+## Next
+
+- Serve the safety env on the host instead, with EGL or OSMesa for MuJoCo's renderer:
+  `MUJOCO_GL=egl uv run --directory python/stack-conflict/sim-safety python -m rlmesh.serve --env env:HalfCheetahSafety --address 127.0.0.1:7447`,
+  then `uv run --directory python/stack-conflict/agent run.py`.
+- The checkpoint comes from [`agent/train.py`](agent/train.py) (see
+  [`agent/models/README.md`](agent/models/README.md));
+  `uv run --directory python/stack-conflict/agent train.py` retrains it.

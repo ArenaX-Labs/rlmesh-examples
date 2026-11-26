@@ -1,40 +1,16 @@
 # LIBERO
 
-LIBERO builds each task from a BDDL file on top of robosuite and provides a fixed list of initial
-states. This factory adapts its reset and step methods to RLMesh and exposes camera images, robot
-state, and an instruction.
+A LIBERO manipulation task served as an RLMesh env: a simulator that is not Gymnasium, with fixed
+initial states and bundled assets, observed as two cameras, robot state and an instruction.
 
-Read [`hello-env`](../hello-env/) and [`metaworld`](../metaworld/) first. This example covers
-episode limits, trial indices, and simulator assets.
+![LIBERO's agentview and wrist cameras while the arm picks up the alphabet soup](media/libero-object.webp)
 
-## Files
-
-| File            | What it is                                                                  |
-| --------------- | --------------------------------------------------------------------------- |
-| `libero_env.py` | `Libero` factory: params, per-task variants, tags, and the LIBERO wrapper   |
-| `Dockerfile`    | Python 3.10, OSMesa, `hf-libero` from PyPI, sim assets baked into the image |
-| `run.py`        | Random actions; prints the observation a model receives                     |
-
-## What's new compared to metaworld
-
-| Concept             | Implementation                                                                                                                                        |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Gymnasium-style API | Convert robosuite's four step results to five, report `is_success`, and enforce an episode budget.                                                    |
-| Reset options       | `reset_options = ("trial_index",)` asks RLMesh to send the trial number on reset. Use it to select an initial state, wrapping at the end of the list. |
-| Bundled assets      | Download meshes and textures during the Docker build so a container can start offline.                                                                |
-| Task variants       | Read task names and instructions from LIBERO's benchmark table.                                                                                       |
-
-## Run
-
-Hardware: CPU. Docker for the container; OSMesa and a C/C++ toolchain to serve on the host.
+## Run it
 
 ```bash
 docker build -t rlmesh-examples/libero python/libero
-cd python/libero
-uv run run.py --image rlmesh-examples/libero
+uv run --directory python/libero run.py --image rlmesh-examples/libero
 ```
-
-`--image` starts the image as an `rlmesh.SandboxEnv` and removes the container when the run ends.
 
 ```text
 agentview_image            (256, 256, 3)
@@ -46,43 +22,71 @@ robot0_gripper_qpos        (2,)
 episodes=2 success_rate=0.00 steps=100
 ```
 
-The random policy checks the serving path; it is not trained to solve these tasks.
+The policy is random; it checks the serving path. Add
+`--make-kwargs '{"task_suite": "libero_spatial", "task_id": 0}'` for another task.
 
-## Picking a task
+## The RLMesh part
 
-`task_suite` (default `libero_10`) and `task_id` (default `0`) select the task. `max_episode_steps`
-defaults to upstream's budget for the suite (`libero_10`: 520). The full param list is in
-`libero_env.py`, or run `docker run --rm rlmesh-examples/libero rlmesh describe libero_env:Libero`.
+The wrapper turns robosuite's four step results into five, and asks RLMesh for the trial number so
+each episode starts from LIBERO's fixed initial states ([`libero_env.py`](libero_env.py)):
 
-To select a task, pass its suite and index:
+```python
+def reset(self, *, seed=None, options=None):
+    # reset_options tells RLMesh to supply the episode's trial number.
+    trial = rlmesh.trial_index(options)
+    ...
+    obs = self.env.set_init_state(self.initial_states[trial % len(self.initial_states)])
+    ...
 
-```bash
-uv run run.py --image rlmesh-examples/libero \
-  --make-kwargs '{"task_suite": "libero_spatial", "task_id": 0}'
+
+def step(self, action):
+    obs, reward, success, info = self.env.step(action)
+    self.steps += 1
+    info["is_success"] = bool(success)
+    return self._obs(obs), reward, bool(success), self.steps >= self.max_steps, info
 ```
 
-## Without Docker
+The factory tags the fields by role, so any VLA's spec resolves against them:
 
-Install OSMesa (`libosmesa6` on Debian/Ubuntu, `mesa-libOSMesa` on Fedora) and a C/C++ toolchain
-with CMake and Make for `egl-probe` (with CMake 4, also set `CMAKE_POLICY_VERSION_MINIMUM=3.5`).
-From the repo root:
-
-```bash
-cd python/libero
-uv run --group sim python -c "from libero.libero import get_assets_path; print(get_assets_path())"
-MUJOCO_GL=osmesa PYOPENGL_PLATFORM=osmesa RLMESH_ADDRESS=127.0.0.1:7447 \
-  uv run --group sim python -m rlmesh.serve --env libero_env:Libero
+```python
+class Libero(rlmesh.EnvFactory):
+    tags = adapt.EnvTags(
+        observation={
+            "agentview_image": adapt.ImageTag(adapt.IMAGE_PRIMARY, upside_down=True),
+            "robot0_eye_in_hand_image": adapt.ImageTag(adapt.IMAGE_WRIST, upside_down=True),
+            "robot0_eef_pos": adapt.StateTag(adapt.EEF_POS),
+            "robot0_eef_quat": adapt.StateTag(adapt.EEF_ROT, encoding="quat_xyzw"),
+            "robot0_gripper_qpos": adapt.StateTag(adapt.GRIPPER_POS),
+            "instruction": adapt.TextTag(adapt.INSTRUCTION),
+        },
+        # OSC_POSE delta control: position, axis-angle rotation, gripper.
+        action=adapt.Action(
+            adapt.Actuator(adapt.ACTION_DELTA_POS, dim=3),
+            adapt.Actuator(adapt.ACTION_DELTA_ROT, dim=3, encoding="axis_angle"),
+            adapt.Actuator(adapt.ACTION_GRIPPER, dim=1, range=(-1.0, 1.0)),
+            clip=(-1.0, 1.0),
+        ),
+    )
+    reset_options = ("trial_index",)
 ```
 
-On the first import, answer `N` to LIBERO's custom dataset path prompt. The first command also
-downloads the simulator assets. Run `uv run run.py` from `python/libero/` in a second terminal; the
-client installs only `rlmesh`, while the `sim` group holds the simulator.
+## Needs
 
-## About the LIBERO package
+CPU and Docker. The image renders with OSMesa and bakes in the simulator assets, so it starts
+offline.
 
-This uses [`hf-libero`](https://pypi.org/project/hf-libero/), the Hugging Face–maintained fork that
-LeRobot evaluates on. It runs on MuJoCo 3. Benchmark comparisons also depend on the policy, reset
-protocol, and episode budget; sharing a simulator version does not establish matching success rates.
+## Next
 
-The Dockerfile installs a C toolchain because `egl-probe`, a LIBERO dependency, only ships as
-source.
+- Serve on the host: install OSMesa and a C/C++ toolchain with CMake (for `egl-probe`; with CMake 4
+  also set `CMAKE_POLICY_VERSION_MINIMUM=3.5`), then
+  `MUJOCO_GL=osmesa PYOPENGL_PLATFORM=osmesa uv run --directory python/libero --group sim python -m rlmesh.serve --env libero_env:Libero --address 127.0.0.1:7447`.
+  Answer `N` to LIBERO's dataset path prompt; the first start downloads the assets. The client needs
+  only `rlmesh`; the `sim` group holds the simulator.
+- `task_suite` (default `libero_10`), `task_id` and `max_episode_steps` (upstream's budget per
+  suite) are the factory's params; `rlmesh describe libero_env:Libero` in the image lists every task
+  as a variant.
+- This uses [`hf-libero`](https://pypi.org/project/hf-libero/), the fork LeRobot evaluates on, on
+  MuJoCo 3. A matching simulator alone does not make success rates comparable: the policy, reset
+  protocol and episode budget matter too.
+- [`vla-adapters`](../vla-adapters/) and [`coding-agent`](../coding-agent/) drive LIBERO with a VLA
+  and with Claude.
