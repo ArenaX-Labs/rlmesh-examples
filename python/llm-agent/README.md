@@ -125,6 +125,17 @@ and [`run.py`](run.py) is `LLMHarness(...).run(args.address, seeds=list(range(ar
   under Settings → Connections, then name it on the model in the evaluation request:
   `{"models": [{"model": "<namespace>/llm-harness", "connections": ["conn_..."]}], "tasks": [{"taskId": "wordle", "env": "<namespace>/llm-env-wordle", "episodes": 3}]}`.
 
+- **Terminal-Bench 2.** [`terminal_env.py`](terminal_env.py) serves one
+  [Terminal-Bench 2](https://github.com/harbor-framework/terminal-bench-2) task: the agent gets the
+  task's instruction and `run_shell`, `write_file` and `submit` tools that run in the task's own
+  container, and on `submit` (or after `MAX_TURNS`, default 40) the task's hidden tests run as
+  Harbor runs them, scoring `/logs/verifier/reward.txt`.
+  `docker/build-tb2.sh TB2_CHECKOUT REGISTRY/NAMESPACE TAG TASK...` layers the server, its own
+  Python and uv onto each task's published image without running anything emulated. The environment
+  state is the container's filesystem, so give every episode its own workload:
+  `"episodes": N, "workers": N`. The tests sit in the image under `/opt/rlmesh/task`, readable by an
+  agent that goes looking.
+
 - **Video.** Every chat env offers `render()` ([`render.py`](render.py)), a 1280×720 frame: the
   latest messages of the chat, or, when the task answers in Wordle-style `G`/`Y`/`X` rows, the
   board, the latest guess and feedback, and a keyboard. RLMesh records it as the `render` camera;
