@@ -286,6 +286,7 @@ class LLMHarness(rlmesh.Model):
             self.calls[episode] = call + 1
             record: dict[str, Any] = {
                 "step": context["predict_index"],
+                "seed": context["episode_seed"],
                 "call": call,
                 "request": {
                     "model": self.model_name,
