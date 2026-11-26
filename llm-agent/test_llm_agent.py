@@ -230,6 +230,17 @@ class _FakeV1Env:
         return SimpleNamespace(traces=[trace], errors=self.episode_errors, is_timeout=False)
 
 
+class _UnservableV1Env(_FakeV1Env):
+    @contextlib.asynccontextmanager
+    async def serving(self) -> Any:
+        raise OSError("port in use")
+        yield
+
+
+def _unbridged(config: Any) -> Any:
+    raise AssertionError("no bridge")
+
+
 def _stub_verifiers_v1(monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest) -> None:
     v1 = ModuleType("verifiers.v1")
     v1.__dict__.update(
@@ -243,6 +254,7 @@ def _stub_verifiers_v1(monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureR
     )
     interception = ModuleType("verifiers.v1.interception")
     server = ModuleType("verifiers.v1.interception.server")
+    server.__dict__["resolve_client"] = _unbridged
     verifiers = ModuleType("verifiers")
     verifiers.__dict__["v1"] = v1
     v1.__dict__["interception"] = interception
@@ -416,13 +428,21 @@ def test_v1_env_serves_one_lane_per_process(
     _stub_verifiers_v1(monkeypatch, request)
     from serve_v1 import V1EnvEnv
 
+    server = sys.modules["verifiers.v1.interception.server"]
+    v1 = sys.modules["verifiers.v1"]
     first, second = V1EnvEnv("tau2"), V1EnvEnv("tau2")
-    first.reset(seed=0)
-    with pytest.raises(RuntimeError, match="RLMESH_NUM_ENVS=1"):
-        second.reset(seed=0)
-    first.close()
+    monkeypatch.setattr(v1, "load_environment", _UnservableV1Env)
+    with pytest.raises(OSError, match="port in use"):
+        first.reset(seed=0)
+    assert server.resolve_client is _unbridged
+    monkeypatch.setattr(v1, "load_environment", _FakeV1Env)
     second.reset(seed=0)
+    with pytest.raises(RuntimeError, match="RLMESH_NUM_ENVS=1"):
+        first.reset(seed=0)
     second.close()
+    assert server.resolve_client is _unbridged
+    first.reset(seed=0)
+    first.close()
 
 
 def test_probe_random_text_is_answered_without_the_llm(
