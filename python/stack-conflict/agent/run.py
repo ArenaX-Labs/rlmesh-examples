@@ -1,7 +1,7 @@
 """Evaluate one SAC checkpoint on its training stack and on a Safety-Gymnasium env it cannot share.
 
-uv run eval.py                                                # safety env on 127.0.0.1:7447
-uv run eval.py --image rlmesh-examples/stack-conflict-safety  # the env image, as a sandbox
+uv run run.py                                                # safety env on 127.0.0.1:7447
+uv run run.py --image rlmesh-examples/stack-conflict-safety  # the env image, as a sandbox
 """
 
 import argparse

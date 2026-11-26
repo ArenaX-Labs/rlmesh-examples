@@ -12,7 +12,7 @@ its payload.
 
 ```
 vla-adapters/
-├── eval.py               # generic harness: --model X --env Y, any pairing
+├── run.py               # generic harness: --model X --env Y, any pairing
 ├── overrides/
 │   ├── __init__.py       # OVERRIDES registry (one line per special pairing)
 │   └── xvla_simpler_bridge.py  # from-scratch adapter for one pairing
@@ -73,8 +73,8 @@ through the resolved pipeline and prints the model payload and the env-ready act
 `python/vla-adapters/`:
 
 ```sh
-uv run eval.py                       # every model x env pair
-uv run eval.py --model xvla --env simpler-bridge  # a single pairing
+uv run run.py                       # every model x env pair
+uv run run.py --model xvla --env simpler-bridge  # a single pairing
 ```
 
 Each run starts by printing `adapter.explain()` — the exact transformations the resolver chose for
@@ -96,14 +96,14 @@ the adapter straight from the session contract — for a plain pairing it just h
 the env and the adapter is built from the contract:
 
 ```sh
-RLMESH_ENV_ADDRESS='127.0.0.1:7447#<key>/libero' uv run eval.py --model smolvla --env libero
+RLMESH_ENV_ADDRESS='127.0.0.1:7447#<key>/libero' uv run run.py --model smolvla --env libero
 ```
 
 Use the participant address announced by the server; the `#<key>` above stands for its session key.
 The harness closes its inspection client before calling `model.run(address)`, since an open
 `RemoteEnv` holds the env.
 
-`test_eval.py` dry-runs every pairing; live evaluations need a served environment and real
+`test_vla_adapters.py` dry-runs every pairing; live evaluations need a served environment and real
 checkpoint integration.
 
 ## Adding a model
@@ -151,7 +151,7 @@ fixed indices live on the env side, where they belong.
 
 `envs/metaworld.py` is the runnable version. It is mixed rather than fully flat: a `Split` tags a
 flat `proprio` leaf inside a `Dict` that also carries the cameras the VLA specs need, so the same
-`smolvla`/`act`/`xvla` specs pair with it. Run `uv run eval.py --env metaworld` and read `explain()`
+`smolvla`/`act`/`xvla` specs pair with it. Run `uv run run.py --env metaworld` and read `explain()`
 — each field prints the slice it reads, e.g. `proprio[3:7] (quat_xyzw->rot6d_rowmajor)` for X-VLA.
 
 ## When the built-in vocabulary is not enough

@@ -27,12 +27,12 @@ as child processes, then reads the recording back and prints a report:
 chunk ages per lease holder, hold ticks, misses, commands applied per
 second, the takeover and hand-back, and the MCAP check::
 
-    uv run demo.py --seconds 10
-    uv run demo.py --keys interactive --seconds 60
-    uv run demo.py --keys none --camera off --seconds 30
+    uv run run.py --seconds 10
+    uv run run.py --keys interactive --seconds 60
+    uv run run.py --keys none --camera off --seconds 30
 
-Or one role per terminal: ``demo.py robot`` prints the session address;
-then ``demo.py policy --address ADDR`` and ``demo.py operator --address
+Or one role per terminal: ``run.py robot`` prints the session address;
+then ``run.py policy --address ADDR`` and ``run.py operator --address
 ADDR --keys interactive``.
 """
 

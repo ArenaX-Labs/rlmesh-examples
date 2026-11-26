@@ -6,7 +6,7 @@
 
 Inputs are the two logs a recorded run writes:
     libero_env.py --trace run/trace.jsonl   (scene XML + joint positions per step)
-    agent.py      --log   run/agent.jsonl   (narration, tool calls, results)
+    run.py        --log   run/agent.jsonl   (narration, tool calls, results)
 
 They are merged by wall-clock time. Agent events hold the frame long enough to
 read; env steps play as motion. The first policy is shown in full, later ones
@@ -217,7 +217,7 @@ def frames(
 def main() -> None:
     parser = argparse.ArgumentParser(description="Render a recorded agent run.")
     parser.add_argument("trace", help="trace.jsonl from libero_env.py --trace")
-    parser.add_argument("log", help="agent.jsonl from agent.py --log")
+    parser.add_argument("log", help="agent.jsonl from run.py --log")
     parser.add_argument("--out", default="agent_run.mp4")
     parser.add_argument("--xml", help="scene XML (default: the trace's .xml sibling)")
     parser.add_argument("--camera", default="agentview")

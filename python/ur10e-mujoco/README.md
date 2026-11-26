@@ -22,7 +22,7 @@ participants:
 Hardware: CPU (a GPU speeds up the wrist camera). From `python/ur10e-mujoco/`:
 
 ```sh
-uv run demo.py --seconds 10
+uv run run.py --seconds 10
 ```
 
 The default run is headless and scripted: the operator takes over at 40% of the run, jogs
@@ -39,8 +39,8 @@ prints the full report; the exit code is non-zero when a check fails.
 | `--record`               | a temp dir | The MCAP file.                                                                                                                                                                                                                  |
 | `--view`                 | off        | MuJoCo's passive viewer (needs a display).                                                                                                                                                                                      |
 
-One role per terminal works too: `demo.py robot --seconds 120` prints the session address, then
-`demo.py policy --address ADDR` and `demo.py operator --address ADDR --keys interactive`.
+One role per terminal works too: `run.py robot --seconds 120` prints the session address, then
+`run.py policy --address ADDR` and `run.py operator --address ADDR --keys interactive`.
 
 Rendering uses EGL (`MUJOCO_GL=egl`); without a GPU, Mesa's llvmpipe renders a frame in about 10 ms
 on two threads (`LP_NUM_THREADS=2`, set by the demo). `--camera off` needs no OpenGL at all.
