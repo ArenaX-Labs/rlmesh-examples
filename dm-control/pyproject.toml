@@ -1,0 +1,8 @@
+[project]
+name = "dm-control-env"
+version = "0.0.0"
+requires-python = ">=3.11"
+dependencies = ["rlmesh[gymnasium,numpy]==0.2.0a2", "dm-control==1.0.31", "mujoco==3.3.5"]
+
+[tool.uv]
+package = false
