@@ -6,7 +6,7 @@ and served from C++ through the RLMesh
 env. A Python model drives it like any other RLMesh env, and RLMesh adapts between them from the
 tags the C++ env publishes.
 
-<!-- TODO: record media/reach.gif (the env's render() frames over a few scripted episodes, e.g. via --view http:9000) and embed it here. -->
+![Chrono's industrial robot reaching four targets under the scripted policy](media/reach.webp)
 
 ## Run it
 

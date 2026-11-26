@@ -6,7 +6,7 @@ C++ physics engine and Unreal, and each one shows the few lines of RLMesh it tak
 
 ## Gallery
 
-<!-- TODO: record media for the Isaac Sim pick-and-place, Chrono and Unreal tiles on a Windows/GPU machine (paths in each example's README TODO) and a Wordle terminal capture for llm-agent, then add them below. -->
+<!-- TODO: record media for the Isaac Sim pick-and-place tile on a GPU machine and a Wordle terminal capture for llm-agent, then add them below. -->
 
 <table>
 <tr>
@@ -24,9 +24,11 @@ C++ physics engine and Unreal, and each one shows the few lines of RLMesh it tak
 </tr>
 <tr>
 <td width="33%" valign="top">
+<a href="cpp/chrono/"><img src="cpp/chrono/media/reach.webp" alt="Chrono's industrial robot reaching a target"></a><br>
 <a href="cpp/chrono/"><b>Project Chrono</b></a>: an industrial robot simulated and served in native C++, driven by a Python model.
 </td>
 <td width="33%" valign="top">
+<a href="unreal/"><img src="unreal/media/demo-arena.webp" alt="An Unreal cube agent collecting coins in a maze"></a><br>
 <a href="unreal/"><b>Unreal demo arena</b></a>: Unreal Engine game worlds as envs, each an actor component a Python policy drives.
 </td>
 <td width="33%" valign="top">
