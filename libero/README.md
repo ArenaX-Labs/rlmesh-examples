@@ -64,17 +64,19 @@ uv run run.py --image rlmesh-examples/libero \
 ## Without Docker
 
 Install OSMesa (`libosmesa6` on Debian/Ubuntu, `mesa-libOSMesa` on Fedora) and a C/C++ toolchain
-with CMake and Make for `egl-probe`. From the repo root:
+with CMake and Make for `egl-probe` (with CMake 4, also set `CMAKE_POLICY_VERSION_MINIMUM=3.5`).
+From the repo root:
 
 ```bash
 cd libero
-uv run python -c "from libero.libero import get_assets_path; print(get_assets_path())"
+uv run --group sim python -c "from libero.libero import get_assets_path; print(get_assets_path())"
 MUJOCO_GL=osmesa PYOPENGL_PLATFORM=osmesa RLMESH_ADDRESS=127.0.0.1:7447 \
-  uv run python -m rlmesh.serve --env libero_env:Libero
+  uv run --group sim python -m rlmesh.serve --env libero_env:Libero
 ```
 
 On the first import, answer `N` to LIBERO's custom dataset path prompt. The first command also
-downloads the simulator assets. Run `uv run run.py` from `libero/` in a second terminal.
+downloads the simulator assets. Run `uv run run.py` from `libero/` in a second terminal; the client
+installs only `rlmesh`, while the `sim` group holds the simulator.
 
 ## About the LIBERO package
 
