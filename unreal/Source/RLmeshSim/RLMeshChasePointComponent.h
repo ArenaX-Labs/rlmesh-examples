@@ -1,7 +1,6 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Math/RandomStream.h"
 #include "RLMeshEnvComponent.h"
 
 #include "RLMeshChasePointComponent.generated.h"
@@ -60,5 +59,4 @@ private:
 	FVector2D GoalHome = FVector2D::ZeroVector;
 	FVector2D Goal = FVector2D::ZeroVector;
 	int32 Steps = 0;
-	FRandomStream Random;
 };

@@ -1,7 +1,6 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Math/RandomStream.h"
 #include "RLMeshEnvComponent.h"
 
 #include "RLMeshCollectCoinsComponent.generated.h"
@@ -61,7 +60,6 @@ private:
 
 	FVector Start = FVector::ZeroVector;
 	int32 Steps = 0;
-	FRandomStream Random;
 
 	UPROPERTY()
 	TArray<TObjectPtr<AActor>> Coins;

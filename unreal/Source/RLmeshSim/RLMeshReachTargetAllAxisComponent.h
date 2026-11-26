@@ -1,7 +1,6 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Math/RandomStream.h"
 #include "RLMeshEnvComponent.h"
 
 #include "RLMeshReachTargetAllAxisComponent.generated.h"
@@ -47,5 +46,4 @@ private:
 	FVector Start = FVector::ZeroVector;
 	FVector Target = FVector::ZeroVector;
 	int32 Steps = 0;
-	FRandomStream Random;
 };
