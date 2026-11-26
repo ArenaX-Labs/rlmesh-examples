@@ -1,14 +1,16 @@
 """Drive the served Meta-World env with random actions and show what a model sees.
 
-    uv run run.py                      # against 127.0.0.1:50051
-    uv run run.py --episodes 3 --max-steps 50
+uv run run.py                                     # the env served on 127.0.0.1:7447
+uv run run.py --image rlmesh-examples/metaworld   # the env image, run as a sandbox
+uv run run.py --image rlmesh-examples/metaworld --make-kwargs '{"env_name": "push-v3"}'
 """
 
 import argparse
+import json
 
 import numpy as np
 import rlmesh
-from rlmesh.numpy import Model
+from rlmesh.numpy import Model, SandboxEnv
 
 rng = np.random.default_rng(0)
 shown = False
@@ -24,14 +26,22 @@ def predict(obs):
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--address", default="127.0.0.1:50051")
+    parser.add_argument("--address", default="127.0.0.1:7447")
+    parser.add_argument("--image", help="start this env image as a sandbox instead")
+    parser.add_argument("--make-kwargs", default="{}", help="JSON params for the image's make()")
     parser.add_argument("--episodes", type=int, default=2)
     parser.add_argument("--max-steps", type=int, default=100)
     args = parser.parse_args()
 
     # NO_ADAPTER: take the env's observation dict as-is instead of adapting it to a model spec.
     model = Model(predict, spec=rlmesh.NO_ADAPTER)
-    result = model.run(args.address, episodes=args.episodes, max_episode_steps=args.max_steps)
+    run = {"episodes": args.episodes, "max_episode_steps": args.max_steps}
+    if args.image:
+        params = json.loads(args.make_kwargs)
+        with SandboxEnv(f"image://{args.image}", connect_timeout_seconds=300, **params) as env:
+            result = model.run(env, **run)
+    else:
+        result = model.run(args.address, **run)
     print(
         f"episodes={result.num_episodes} "
         f"mean_reward={result.mean_reward:.2f} steps={result.total_steps}"

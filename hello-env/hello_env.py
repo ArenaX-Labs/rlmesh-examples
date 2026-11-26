@@ -30,10 +30,10 @@ class LineWalk(gym.Env):
 
 
 class HelloEnv(rlmesh.EnvFactory):
-    workflow_edition = "2026.06"
-
     params = rlmesh.ParamSpec(
-        rlmesh.Param("size", type="int", description="Distance between the endpoints (at least 1)."),
+        rlmesh.Param(
+            "size", type="int", description="Distance between the endpoints (at least 1)."
+        ),
     )
 
     @classmethod

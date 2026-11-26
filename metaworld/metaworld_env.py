@@ -53,8 +53,6 @@ class MetaWorldEnv:
 
 
 class MetaWorld(rlmesh.EnvFactory):
-    workflow_edition = "2026.06"
-
     tags = adapt.EnvTags(
         observation={
             # corner2 renders with both axes inverted. Declaring it lets RLMesh
@@ -76,14 +74,23 @@ class MetaWorld(rlmesh.EnvFactory):
 
     params = rlmesh.ParamSpec(
         rlmesh.Param("env_name", type="str", description="MT1 task to load (e.g. 'reach-v3')."),
-        rlmesh.Param("camera_name", type="enum", choices=CAMERA_NAMES, description="Camera rendered into the image."),
-        rlmesh.Param("image_size", type="int", description="Rendered image height and width in pixels."),
+        rlmesh.Param(
+            "camera_name",
+            type="enum",
+            choices=CAMERA_NAMES,
+            description="Camera rendered into the image.",
+        ),
+        rlmesh.Param(
+            "image_size", type="int", description="Rendered image height and width in pixels."
+        ),
     )
 
     @classmethod
     def enumerate_variants(cls):
         for env_name, instruction in TASK_DESCRIPTIONS.items():
-            yield rlmesh.Variant(env_name, {"env_name": env_name}, name=env_name, instruction=instruction)
+            yield rlmesh.Variant(
+                env_name, {"env_name": env_name}, name=env_name, instruction=instruction
+            )
 
     def make(self, *, env_name="reach-v3", camera_name="corner2", image_size=256):
         if image_size < 1:

@@ -1,11 +1,12 @@
 [project]
 name = "metaworld-env"
-version = "0.1.0"
+version = "0.0.0"
 requires-python = "~=3.10.0"
-dependencies = ["rlmesh==0.1.0", "metaworld", "packaging"]
+dependencies = [
+  "rlmesh[numpy]==0.2.0a2",
+  "metaworld @ git+https://github.com/Farama-Foundation/Metaworld@7ea2b501c4a698c8533cdc55a396fe2734e2649d",
+  "packaging",
+]
 
 [tool.uv]
 package = false
-
-[tool.uv.sources]
-metaworld = { git = "https://github.com/Farama-Foundation/Metaworld", rev = "7ea2b501c4a698c8533cdc55a396fe2734e2649d" }

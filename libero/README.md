@@ -26,19 +26,15 @@ episode limits, trial indices, and simulator assets.
 
 ## Run
 
-From the repo root:
+Hardware: CPU. Docker for the container; OSMesa and a C/C++ toolchain to serve on the host.
 
 ```bash
 docker build -t rlmesh-examples/libero libero
-docker run --rm -p 127.0.0.1:50051:50051 rlmesh-examples/libero
-```
-
-Wait for `RLMesh serving env` in the container logs. Then, in a second terminal:
-
-```bash
 cd libero
-uv run run.py
+uv run run.py --image rlmesh-examples/libero
 ```
+
+`--image` starts the image as an `rlmesh.SandboxEnv` and removes the container when the run ends.
 
 ```text
 agentview_image            (256, 256, 3)
@@ -50,8 +46,7 @@ robot0_gripper_qpos        (2,)
 episodes=2 success_rate=0.00 steps=100
 ```
 
-The random policy checks the serving path; it is not trained to solve these tasks. Stop the server
-with Ctrl-C when finished.
+The random policy checks the serving path; it is not trained to solve these tasks.
 
 ## Picking a task
 
@@ -59,11 +54,11 @@ with Ctrl-C when finished.
 defaults to upstream's budget for the suite (`libero_10`: 520). The full param list is in
 `libero_env.py`, or run `docker run --rm rlmesh-examples/libero rlmesh describe libero_env:Libero`.
 
-To select a task, stop the current container and pass its suite and index:
+To select a task, pass its suite and index:
 
 ```bash
-docker run --rm -p 127.0.0.1:50051:50051 \
-  -e 'RLMESH_MAKE_KWARGS={"task_suite": "libero_spatial", "task_id": 0}' rlmesh-examples/libero
+uv run run.py --image rlmesh-examples/libero \
+  --make-kwargs '{"task_suite": "libero_spatial", "task_id": 0}'
 ```
 
 ## Without Docker
@@ -74,7 +69,7 @@ with CMake and Make for `egl-probe`. From the repo root:
 ```bash
 cd libero
 uv run python -c "from libero.libero import get_assets_path; print(get_assets_path())"
-MUJOCO_GL=osmesa PYOPENGL_PLATFORM=osmesa RLMESH_ADDRESS=127.0.0.1:50051 \
+MUJOCO_GL=osmesa PYOPENGL_PLATFORM=osmesa RLMESH_ADDRESS=127.0.0.1:7447 \
   uv run python -m rlmesh.serve --env libero_env:Libero
 ```
 
