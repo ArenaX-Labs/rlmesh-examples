@@ -44,3 +44,7 @@ uv run ruff check . && uv run ruff format --check .
 ```
 
 The root `pyproject.toml` holds the test and lint tools; the examples do not depend on it.
+
+## License
+
+MIT; see [LICENSE](LICENSE).
