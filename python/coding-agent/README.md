@@ -7,7 +7,7 @@ in the control loop; the finished `policy.py` runs at the env's own rate with no
 | File            | Role                                                                                 |
 | --------------- | ------------------------------------------------------------------------------------ |
 | `libero_env.py` | Serves one LIBERO task as an RLMesh env, with object poses instead of camera images. |
-| `agent.py`      | Claude with five tools: `describe`, `reset`, `step`, `write_policy`, `evaluate`.     |
+| `run.py`      | Claude with five tools: `describe`, `reset`, `step`, `write_policy`, `evaluate`.     |
 | `make_video.py` | Renders a recorded run: the agent's activity on top, LIBERO below.                   |
 
 How a run goes:
@@ -18,7 +18,7 @@ How a run goes:
    explored, and reports per-episode success.
 4. A policy that passes every episode is copied to `workdir/skills/<skill>.py`.
 
-The agent reads the task from the env (`info["instruction"]` on reset), so `agent.py` works against
+The agent reads the task from the env (`info["instruction"]` on reset), so `run.py` works against
 any RLMesh env that provides one.
 
 ## Setup
@@ -64,7 +64,7 @@ From `python/coding-agent/`, in two terminals:
 ~/libero-venv/bin/python libero_env.py --suite libero_spatial --task-id 0
 
 # 2. Run the agent
-uv run agent.py --skill libero_spatial_0
+uv run run.py --skill libero_spatial_0
 ```
 
 The agent prints its narration, tool calls and evaluation results as it goes; a passing policy lands
@@ -75,9 +75,9 @@ in `workdir/skills/libero_spatial_0.py`.
 | `libero_env.py --suite`     | `libero_spatial`  | `libero_spatial`, `libero_object`, `libero_goal` or `libero_10` |
 | `libero_env.py --task-id`   | `0`               | task within the suite (0-9)                                     |
 | `libero_env.py --max-steps` | `300`             | steps per episode; use `520` for `libero_10`                    |
-| `agent.py --model`          | `claude-opus-5-5` | any Claude model, e.g. `claude-sonnet-5-5` for a cheaper run    |
-| `agent.py --max-iterations` | `60`              | agent turns before it stops                                     |
-| `agent.py --skill`          | `policy`          | file name for a passing policy                                  |
+| `run.py --model`          | `claude-opus-5-5` | any Claude model, e.g. `claude-sonnet-5-5` for a cheaper run    |
+| `run.py --max-iterations` | `60`              | agent turns before it stops                                     |
+| `run.py --skill`          | `policy`          | file name for a passing policy                                  |
 
 Both scripts take `--address` (default `127.0.0.1:5555`).
 
@@ -90,7 +90,7 @@ evaluation results on top, with the matching LIBERO view below.
 ```sh
 mkdir -p run
 ~/libero-venv/bin/python libero_env.py --trace run/trace.jsonl
-uv run agent.py --log run/agent.jsonl
+uv run run.py --log run/agent.jsonl
 uv run make_video.py run/trace.jsonl run/agent.jsonl --out run/agent_run.mp4
 ```
 

@@ -11,7 +11,7 @@ Start here. It builds a sandbox for Gymnasium `CartPole-v1`, samples actions, an
 container when the script exits.
 
 ```bash
-uv run gym_sandbox.py
+uv run run.py
 ```
 
 The script passes `build=SandboxBuild(packages=["gymnasium==1.3.0"], imports=["gymnasium"])` so the
@@ -19,10 +19,10 @@ dependency is installed and checked inside the sandbox.
 
 ## Hugging Face Sandbox
 
-`hf_sandbox.py` shows the single-env client loop for a Hugging Face EnvHub source:
+`run.py hf` runs the same client loop on a Hugging Face EnvHub source:
 
 ```bash
-uv run hf_sandbox.py
+uv run run.py hf
 ```
 
 It uses `hf://lerobot/cartpole-env:cartpole_suite/0`. The selector chooses suite `cartpole_suite`,

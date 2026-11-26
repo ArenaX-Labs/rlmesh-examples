@@ -2,13 +2,13 @@
 
 From ``vla-adapters/`` (no server needed):
 
-    uv run eval.py                       # every model x env pair
-    uv run eval.py --model xvla --env simpler-bridge
+    uv run run.py                       # every model x env pair
+    uv run run.py --model xvla --env simpler-bridge
 
 Against a live env endpoint:
 
     RLMESH_ENV_ADDRESS='127.0.0.1:7447#<key>/libero' \
-        uv run eval.py --model smolvla --env libero
+        uv run run.py --model smolvla --env libero
 
 The address carries the session's key, so it comes from the environment
 rather than the command line, which every user of the machine can read.

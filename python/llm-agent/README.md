@@ -16,7 +16,7 @@ logged.
   `tau2-bench`) that runs its own harness and scoring.
 - `serve_v0.py`: serves a verifiers v0 environment (`wordle`, `mastermind`, `alphabet-sort`,
   `tool-test`, `color-codeword`); the environment runs its own rollout loop and rubric.
-- `eval.py`: runs the harness against a served task and prints each episode.
+- `run.py`: runs the harness against a served task and prints each episode.
 - `fake_llm.py`: a scripted LLM for tests.
 - `docker/`, `run_docker.py`: the harness and env servers as images, run as RLMesh sandboxes (see
   [Docker](#docker)).
@@ -61,26 +61,26 @@ does not need.
 ## Run
 
 Serve a task in one terminal and evaluate it in another, from this directory. Seeds `0..n-1` pick
-the tasks, so a run reproduces; `eval.py` always seeds, and an unseeded reset gets task 0.
+the tasks, so a run reproduces; `run.py` always seeds, and an unseeded reset gets task 0.
 
 ```bash
 .venv-v1/bin/python serve_v1.py --taskset primeintellect/math500 --address 127.0.0.1:5555
-uv run eval.py 127.0.0.1:5555 -n 3 --model qwen3:4b
+uv run run.py 127.0.0.1:5555 -n 3 --model qwen3:4b
 ```
 
 ```bash
 .venv-v0/bin/python serve_v0.py --env wordle --address 127.0.0.1:5555
-uv run eval.py 127.0.0.1:5555 -n 2
+uv run run.py 127.0.0.1:5555 -n 2
 ```
 
 ```bash
 .venv-v0/bin/python serve_v0.py --env color-codeword --address 127.0.0.1:5555
-uv run eval.py 127.0.0.1:5555 -n 2 --model gemma3:4b
+uv run run.py 127.0.0.1:5555 -n 2 --model gemma3:4b
 ```
 
 ```bash
 uv run chat_env.py --task tictactoe --address 127.0.0.1:5555
-uv run eval.py 127.0.0.1:5555 -n 2 --model qwen3:4b
+uv run run.py 127.0.0.1:5555 -n 2 --model qwen3:4b
 ```
 
 What each task exercises:
@@ -126,7 +126,7 @@ inference instead and ignores `OPENAI_BASE_URL`. Locally, make Ollama answer to 
 ollama cp qwen3:4b gpt-4.1
 OPENAI_BASE_URL=http://localhost:11434/v1 OPENAI_API_KEY=ollama \
   .venv-v1/bin/python serve_v1.py --env primeintellect/tau2-bench --max-steps 20 --address 127.0.0.1:5555
-uv run eval.py 127.0.0.1:5555 -n 2 --model qwen3:4b --max-tokens 4096
+uv run run.py 127.0.0.1:5555 -n 2 --model qwen3:4b --max-tokens 4096
 ```
 
 The simulator must support tools (`llama3` does not; the telecom customer calls some). A 4B customer

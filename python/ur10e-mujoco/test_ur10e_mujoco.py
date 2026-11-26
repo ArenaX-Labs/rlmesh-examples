@@ -3,7 +3,7 @@ from pathlib import Path
 
 
 def test_teleop_takes_over_hands_back_and_records_mcap(run_script):
-    out = run_script("demo.py", "--seconds", "8", "--json", cwd=Path(__file__).parent)
+    out = run_script("run.py", "--seconds", "8", "--json", cwd=Path(__file__).parent)
     report = json.loads(out)
     assert all(report["checks"].values()), report["checks"]
     assert report["checks"]["takeover"] and report["checks"]["hand_back"]

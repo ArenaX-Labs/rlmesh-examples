@@ -12,7 +12,7 @@ Python, and RLMesh carries observations and actions between them.
 | `agent`      | Stable-Baselines3 SAC, Gymnasium 1.x, MuJoCo 3, Python 3.11         | runs `HalfCheetah-v5` here, the safety env remotely |
 
 ```text
-sim-safety (Python 3.10)            agent/eval.py (Python 3.11)
+sim-safety (Python 3.10)            agent/run.py (Python 3.11)
 Safety-Gymnasium / MuJoCo 2.3       SAC checkpoint, Gymnasium / MuJoCo 3
         <------------------------>  RemoteEnv
 ```
@@ -26,7 +26,7 @@ Build the safety env image and run the agent against it as a sandbox:
 ```bash
 docker build -t rlmesh-examples/stack-conflict-safety python/stack-conflict/sim-safety
 cd python/stack-conflict/agent
-uv run eval.py --image rlmesh-examples/stack-conflict-safety
+uv run run.py --image rlmesh-examples/stack-conflict-safety
 ```
 
 Or serve the env on the host, with OSMesa or EGL for MuJoCo's renderer:
@@ -36,7 +36,7 @@ cd python/stack-conflict/sim-safety
 MUJOCO_GL=egl RLMESH_ADDRESS=127.0.0.1:7447 uv run python -m rlmesh.serve --env env:HalfCheetahSafety
 ```
 
-and run `uv run eval.py` from `python/stack-conflict/agent` in a second terminal.
+and run `uv run run.py` from `python/stack-conflict/agent` in a second terminal.
 
 ```text
 modern-halfcheetah-v5        steps= 100 return=   310.7 cost=   0.0
