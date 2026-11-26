@@ -125,6 +125,9 @@ and [`run.py`](run.py) is `LLMHarness(...).run(args.address, seeds=list(range(ar
   under Settings → Connections, then name it on the model in the evaluation request:
   `{"models": [{"model": "<namespace>/llm-harness", "connections": ["conn_..."]}], "tasks": [{"taskId": "wordle", "env": "<namespace>/llm-env-wordle", "episodes": 3}]}`.
 
+- **Video.** Every chat env offers `render()` ([`render.py`](render.py)): the model's latest reply,
+  the task's latest message, and a board of every guess when the task answers in Wordle-style
+  `G`/`Y`/`X` rows. A recorder names it the `render` camera (`cameras=["render"]`).
 - **Output.** Both sides write under `$RLMESH_OUTPUT_DIR` (default `./runs/<timestamp>`):
   `transcripts/<episode_id>.jsonl` from the harness (one line per LLM call with the step, the
   episode seed (which RLMesh also records per episode), the request, the reply, its `reasoning` when
