@@ -20,7 +20,7 @@ RUN uv pip install --system --no-cache \
       -r requirements-v1.txt "rlmesh==${RLMESH_VERSION}"
 
 WORKDIR /app
-COPY chat_env.py serve_v1.py ./
+COPY chat_env.py render.py serve_v1.py ./
 
 ARG TASKSET=primeintellect/math500
 ARG RUNTIME=

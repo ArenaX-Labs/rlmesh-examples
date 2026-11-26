@@ -14,7 +14,7 @@ RUN uv pip install --system --no-cache \
       -r requirements-v0.txt "rlmesh==${RLMESH_VERSION}"
 
 WORKDIR /app
-COPY chat_env.py serve_v0.py ./
+COPY chat_env.py render.py serve_v0.py ./
 
 ARG ENV_ID=wordle
 ARG MAX_TURNS=

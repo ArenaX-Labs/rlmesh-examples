@@ -4,10 +4,10 @@
 FROM python:3.11-slim
 
 ARG RLMESH_VERSION=0.2.0a2
-RUN pip install --no-cache-dir "rlmesh==${RLMESH_VERSION}"
+RUN pip install --no-cache-dir "rlmesh==${RLMESH_VERSION}" pillow
 
 WORKDIR /app
-COPY chat_env.py ./
+COPY chat_env.py render.py ./
 
 ENV RLMESH_OUTPUT_DIR=/rlmesh/output/env \
     RLMESH_NAME=env \
