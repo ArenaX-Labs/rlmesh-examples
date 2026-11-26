@@ -1,0 +1,9 @@
+[project]
+name = "stack-conflict-sim-safety"
+version = "0.0.0"
+# safety-gymnasium 1.0.0 pins gymnasium 0.28.1 and mujoco 2.3.3, and its pygame 2.1.0 needs Python 3.10.
+requires-python = "~=3.10.0"
+dependencies = ["rlmesh[numpy]==0.2.0a2", "safety-gymnasium==1.0.0"]
+
+[tool.uv]
+package = false
