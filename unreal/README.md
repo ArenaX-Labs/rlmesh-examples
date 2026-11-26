@@ -140,4 +140,4 @@ Each step takes at least one frame, so the project caps the frame rate at 120 FP
 
 ## License
 
-Licensed under either of [Apache License, Version 2.0](LICENSE-APACHE) or [MIT license](LICENSE-MIT) at your option, like RLMesh itself.
+MIT. See [LICENSE](LICENSE).
