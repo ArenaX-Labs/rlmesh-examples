@@ -8,3 +8,4 @@ aime25
 gpqa
 tau2-bench
 tau2 @ git+https://github.com/sierra-research/tau2-bench.git@337326e
+pillow

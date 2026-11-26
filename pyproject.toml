@@ -5,7 +5,14 @@ requires-python = ">=3.11"
 dependencies = []
 
 [dependency-groups]
-dev = ["rlmesh[gymnasium,numpy,robot]==0.2.0a2", "mujoco==3.16.0", "mcap==1.6.0", "pytest", "ruff"]
+dev = [
+  "rlmesh[gymnasium,numpy,robot]==0.2.0a2",
+  "mujoco==3.16.0",
+  "mcap==1.6.0",
+  "pillow",
+  "pytest",
+  "ruff",
+]
 
 [tool.uv]
 package = false

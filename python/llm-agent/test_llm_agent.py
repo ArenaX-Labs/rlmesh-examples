@@ -622,3 +622,26 @@ def test_tictactoe_scores_both_seats(tmp_path: Path, monkeypatch: pytest.MonkeyP
 
     _, info = play("1", "2", "3", "5", "4", "6", "8", "7", "9")
     assert info["rewards"] == {"X": 0.0, "O": 0.0} and info["winner"] == "draw"
+
+
+def test_render_draws_each_wordle_row_and_the_latest_turn(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("RLMESH_OUTPUT_DIR", str(tmp_path))
+    monkeypatch.syspath_prepend(str(HERE))
+    from chat_env import TicTacToeTask
+    from render import board
+
+    feedback = "\nC R A N E\nX G X X X\nYou have 5 guesses left."
+    messages = [
+        {"role": "user", "content": [{"type": "text", "text": feedback}]},
+        {"role": "assistant", "content": "R O B O T\nG G G G G"},
+        {"role": "user", "content": "\nT R I O S\nY G Y X X\n"},
+    ]
+    assert board(messages) == [("CRANE", "XGXXX"), ("TRIOS", "YGYXX")]
+
+    env = TicTacToeTask()
+    env.reset(seed=0)
+    env.step(json.dumps({"role": "assistant", "content": "5"}))
+    assert [m["role"] for m in env.history] == ["user", "assistant", "user"]
+    assert env.render().shape == (720, 1280, 3)

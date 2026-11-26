@@ -7,8 +7,9 @@
 #     --build-arg ENV_ID=primeintellect/tau2-bench .
 FROM python:3.11-slim AS base
 COPY --from=ghcr.io/astral-sh/uv:0.11.0 /uv /uvx /bin/
-# tau2 installs from git and fetches its domain data with git at startup.
-RUN apt-get update && apt-get install -y --no-install-recommends git \
+# tau2 installs from git and fetches its domain data with git at startup; render.py draws
+# with the fonts.
+RUN apt-get update && apt-get install -y --no-install-recommends git fonts-inter fonts-jetbrains-mono \
     && rm -rf /var/lib/apt/lists/*
 
 ARG RLMESH_VERSION=0.2.0a2
@@ -20,7 +21,7 @@ RUN uv pip install --system --no-cache \
       -r requirements-v1.txt "rlmesh==${RLMESH_VERSION}"
 
 WORKDIR /app
-COPY chat_env.py serve_v1.py ./
+COPY chat_env.py render.py serve_v1.py ./
 
 ARG TASKSET=primeintellect/math500
 ARG RUNTIME=

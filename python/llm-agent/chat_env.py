@@ -55,12 +55,14 @@ class ChatTaskEnv:
 
     observation_space = rlmesh.spaces.Text(1_000_000, min_length=1)
     action_space = rlmesh.spaces.Text(1_000_000, min_length=1)
+    render_mode = "rgb_array"
 
     def __init__(self) -> None:
         self.log_dir = output_dir() / "env"
         self.log_dir.mkdir(exist_ok=True)
         self.seed = 0
         self.task_id = ""
+        self.history: list[Message] = []
 
     def start(self, index: int) -> Turn:
         """Begin task ``index`` and return its prompt; set ``self.task_id``."""
@@ -75,10 +77,13 @@ class ChatTaskEnv:
     ) -> tuple[str, dict[str, Any]]:
         self.seed = seed or 0
         turn = self.start(self.seed)
+        self.history = list(turn.messages)
         return _observation(turn), {"task_id": self.task_id}
 
     def step(self, action: str) -> tuple[str, float, bool, bool, dict[str, Any]]:
-        turn = self.respond(_message(action))
+        reply = _message(action)
+        turn = self.respond(reply)
+        self.history += [{"role": "assistant", **reply}, *turn.messages]
         if turn.rewards is None:
             return _observation(turn), 0.0, False, False, {}
         success = turn.reward >= 1.0 if turn.success is None else turn.success
@@ -91,6 +96,13 @@ class ChatTaskEnv:
         }
         append_jsonl(self.log_dir / f"seed-{self.seed}.jsonl", {**info, "ts": time.time()})
         return _observation(turn), turn.reward, not turn.truncated, turn.truncated, info
+
+    def render(self) -> Any:
+        """The chat so far as an RGB frame (``render.py``), recorded as the ``render`` camera."""
+        from render import frame  # The harness imports this module without Pillow.
+
+        name = getattr(self, "env_id", None) or type(self).__name__
+        return frame(self.history, name, self.task_id)
 
     def close(self) -> None:
         pass
