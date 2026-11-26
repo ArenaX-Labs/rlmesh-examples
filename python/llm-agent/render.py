@@ -71,14 +71,17 @@ def board(messages: list[dict[str, Any]]) -> list[tuple[str, str]]:
     return rows
 
 
-def frame(messages: list[dict[str, Any]], name: str, task_id: str) -> np.ndarray:
-    """A ``HEIGHT x WIDTH x 3`` uint8 frame of the chat so far."""
+def frame(
+    messages: list[dict[str, Any]], name: str, task_id: str, success: bool | None = None
+) -> np.ndarray:
+    """A ``HEIGHT x WIDTH x 3`` uint8 frame of the chat so far; ``success`` once the episode ended."""
     gradient = np.linspace(BG_TOP, BG_BOTTOM, HEIGHT).astype(np.uint8)
     image = Image.fromarray(np.repeat(gradient[:, None, :], WIDTH, axis=1))
     draw = ImageDraw.Draw(image)
     messages = [m for m in messages if m.get("role") != "system"]
     rows = board(messages)
     if rows or name.lower() == "wordle":
+        rows = _with_final_guess(messages, rows, success)
         _game(draw, messages, rows, task_id)
     else:
         _header(draw, name.replace("_", " ").title(), f"task {task_id}", None)
@@ -87,6 +90,20 @@ def frame(messages: list[dict[str, Any]], name: str, task_id: str) -> np.ndarray
     label = f"env.render()  ·  step {steps}"
     draw.text((MARGIN, HEIGHT - 36), label, font=font("regular", 14), fill=MUTED, anchor="lm")
     return np.asarray(image)
+
+
+def _with_final_guess(messages, rows, success: bool | None) -> list[tuple[str, str]]:
+    """Add the episode's last guess, which a task may end on without a feedback row."""
+    last = max((i for i, m in enumerate(messages) if m.get("role") == "assistant"), default=-1)
+    later = messages[last + 1 :]
+    if success is None or last < 0 or len(rows) >= ROWS:
+        return rows
+    if any(FEEDBACK.search(text_of(m.get("content"))) for m in later):
+        return rows
+    guess = re.findall(r"\[([A-Za-z]{5})\]", text_of(messages[last].get("content")))
+    if not guess:
+        return rows
+    return [*rows, (guess[-1].upper(), "G" * 5 if success else "?" * 5)]
 
 
 def _game(draw: ImageDraw.ImageDraw, messages, rows, task_id: str) -> None:
@@ -150,6 +167,8 @@ def _game(draw: ImageDraw.ImageDraw, messages, rows, task_id: str) -> None:
             x += 46
         x += 18
         _lines(draw, note, (x, env_top + 56), right - x - 24, 1)
+    elif reply is not None and note:
+        _lines(draw, note, (x, env_top + 46), right - x - 24, 2)
     else:
         rules = f"New game: find the five-letter word in {ROWS} guesses."
         _lines(draw, rules, (x, env_top + 56), right - x - 24, 1)
@@ -157,6 +176,8 @@ def _game(draw: ImageDraw.ImageDraw, messages, rows, task_id: str) -> None:
     known: dict[str, str] = {}
     for word, marks in rows:
         for letter, mark in zip(word, marks):
+            if mark not in "GYX":
+                continue
             if letter not in known or "GYX".index(mark) < "GYX".index(known[letter]):
                 known[letter] = mark
     key_w, key_h, key_gap = 50, 48, 7
