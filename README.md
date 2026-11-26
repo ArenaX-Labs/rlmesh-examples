@@ -1,68 +1,46 @@
 # RLMesh Examples
 
-Examples for running environments locally with RLMesh and packaging them as Docker images. Start
-with [`hello-env`](hello-env/): it includes an environment, a Dockerfile, and a policy that runs
-against either the local process or the container.
+Larger examples for [RLMesh](https://github.com/ArenaX-Labs/rlmesh): simulators, containers, VLA
+adapters, LLM agents and native envs. Each folder is self-contained and installs a released
+`rlmesh`, as a user would. For the concepts, start with the
+[RLMesh README](https://github.com/ArenaX-Labs/rlmesh#readme) and its
+[docs](https://rlmesh.dev/docs/); the small API examples live in the
+[rlmesh repository](https://github.com/ArenaX-Labs/rlmesh/tree/main/examples).
 
-## Build an environment
-
-| Example                                        | What it adds                                                                     | Hardware |
-| ---------------------------------------------- | -------------------------------------------------------------------------------- | -------- |
-| [`hello-env/`](hello-env/)                     | A small Gymnasium env, an `EnvFactory`, and the complete build/run loop          | CPU      |
-| [`metaworld/`](metaworld/)                     | An upstream Gymnasium simulator with camera, state, and instruction observations | CPU      |
-| [`libero/`](libero/)                           | A non-Gymnasium simulator with fixed initial states and bundled assets           | CPU      |
-| [`isaacsim/`](isaacsim/)                       | Batched Franka reach with a direct, unadapted policy                             | RTX GPU  |
-| [`isaacsim-pick-place/`](isaacsim-pick-place/) | UR10e grasping with a resolved camera, pose, and gripper adapter                 | RTX GPU  |
-
-The two Isaac Sim examples show different model interfaces. Franka reach passes the environment's
-observations and actions through unchanged. The
-[UR10e pick-and-place walkthrough](isaacsim-pick-place/) shows how environment tags and a model spec
-resolve camera, pose, and gripper conversions.
-
-Each example serves an `EnvFactory` through `python -m rlmesh.serve`. The factory's `make()` method
-creates the environment; the Dockerfile installs its dependencies and starts the server. The client
-in `run.py` connects to that server and runs a policy.
+| Example                                        | What it adds                                                                            | Hardware                             |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------- | ------------------------------------ |
+| [`hello-env/`](hello-env/)                     | A small Gymnasium env, an `EnvFactory`, and the serve, build and run loop               | CPU                                  |
+| [`byo-container/`](byo-container/)             | Hand-written env and model images, run as sandboxes or with your own launcher           | CPU, Docker                          |
+| [`sandbox/`](sandbox/)                         | Sandboxes RLMesh builds for you from a Gymnasium id or a Hugging Face EnvHub repo       | CPU, Docker                          |
+| [`metaworld/`](metaworld/)                     | An upstream Gymnasium simulator with camera, state and instruction observations         | CPU                                  |
+| [`libero/`](libero/)                           | A non-Gymnasium simulator with fixed initial states and bundled assets                  | CPU                                  |
+| [`dm-control/`](dm-control/)                   | A `dm_env` simulator behind Gymnasium-style calls, and a model that emits action chunks | CPU                                  |
+| [`stack-conflict/`](stack-conflict/)           | A SAC checkpoint evaluated on a simulator stack it cannot share a venv with             | CPU                                  |
+| [`vla-adapters/`](vla-adapters/)               | Env tags and model specs resolving adapters across many VLA × env pairs                 | CPU                                  |
+| [`llm-agent/`](llm-agent/)                     | An LLM agent harness on Prime Environments Hub tasks, locally or as Docker images       | CPU, an OpenAI-compatible LLM server |
+| [`coding-agent/`](coding-agent/)               | Claude probes a LIBERO task and writes its policy as code                               | CPU, Claude API key                  |
+| [`ur10e-mujoco/`](ur10e-mujoco/)               | A real-time session: a MuJoCo UR10e, a policy, teleop takeover, MCAP recording          | CPU                                  |
+| [`chrono/`](chrono/)                           | A Project Chrono robot served natively from C++ through the RLMesh C ABI                | CPU                                  |
+| [`isaacsim/`](isaacsim/)                       | A batched Isaac Sim Franka reach as a vector env                                        | RTX GPU                              |
+| [`isaacsim-pick-place/`](isaacsim-pick-place/) | UR10e grasping with a resolved camera, pose and gripper adapter                         | RTX GPU                              |
 
 ## Setup
 
-Install [`uv`](https://docs.astral.sh/uv/) and Docker to follow the container examples. The MuJoCo
-examples also include instructions for serving directly on your host.
+Install [`uv`](https://docs.astral.sh/uv/), and Docker for the container examples. Each example has
+its own `pyproject.toml`; run `uv run ...` from its folder and uv creates that folder's environment.
+Commands in the READMEs start from the repository root unless they say otherwise.
 
-Each component has its own `pyproject.toml`, `uv.lock`, and `.venv`. Run `uv` from that component's
-directory. There is no root Python project, and the conflict demos deliberately use packages that
-cannot share a virtual environment.
+Every example pins `rlmesh==0.2.0a2`. Use the same version in a client and the image it talks to:
+`git grep -n -e 0.2.0a2 -e v0.2.0-alpha.2` lists every pin to move together.
 
-The examples pin `rlmesh==0.1.0`. Use the same SDK version in the client and
-container. When updating it, update the project pins and lockfiles together, including both Isaac
-Sim Dockerfiles' `RLMESH_VERSION`.
+A served env or model listens on port 7447, so run one example at a time or pick another port.
 
-[`mise`](https://mise.jdx.dev/) is optional. Its component configs select Python and activate that
-component's `.venv`; run `mise trust` in each directory when prompted. Without it, `uv run` uses the
-Python version required by the component's `pyproject.toml`.
+## Tests
 
-Run one example at a time: most servers use port 50051. Commands that start with `cd` assume a fresh
-terminal at the repo root. Leave the server running while you use the client in another terminal,
-then stop it with Ctrl-C.
+```bash
+uv run pytest              # CPU tests, a minute or so
+uv run pytest -m docker    # tests that build and run Docker images
+uv run ruff check . && uv run ruff format --check .
+```
 
-## Dependency and interface demos
-
-These demos show why you might separate a model and environment into different processes. They
-include evaluation loops and recording code in addition to the serving code.
-
-| Demo                                         | What it shows                                                                                      |
-| -------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| [`env-stack-conflict/`](env-stack-conflict/) | One policy against Safety-Gymnasium/MuJoCo 2.x and Gymnasium/MuJoCo 3.x, each in its own container |
-| [`model-env-conflict/`](model-env-conflict/) | A SAC checkpoint evaluated against a Safety-Gymnasium env with incompatible dependencies           |
-| [`interface-mismatch/`](interface-mismatch/) | Adapting `dm_control` time steps and a model that returns chunks of actions                        |
-
-## Run on RLMesh Managed
-
-The environment images use the standard `rlmesh.serve` command, which lets Managed discover their
-parameters and variants from the handshake. Keep that command and `EXPOSE 50051` when adapting an
-example; Managed sets `RLMESH_ADDRESS` itself when it runs the image. Both Isaac Sim images declare
-GPU and memory requirements in their image labels.
-
-Build for `linux/amd64` when targeting Managed, use the SDK version required by your deployment, and
-test the image locally before uploading it. The
-[hello-env walkthrough](hello-env/#run-on-rlmesh-managed) shows the tag and push steps. An upload
-must pass the Managed probe before it can run there.
+The root `pyproject.toml` holds the test and lint tools; the examples do not depend on it.
