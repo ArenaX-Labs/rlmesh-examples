@@ -1,43 +1,55 @@
 # dm_control
 
-A `dm_control` env and a chunk-emitting model, neither of which speaks the Gymnasium env/model
-interface directly, run through RLMesh.
+A `dm_control` task and a model that emits chunks of eight actions, neither of which speaks the
+Gymnasium interface, run against each other through RLMesh.
 
-| Piece           | Native interface                    | What RLMesh sees                                  |
-| --------------- | ----------------------------------- | ------------------------------------------------- |
-| `bring_ball.py` | `dm_env.TimeStep` objects and specs | `reset`, `step`, `render`, Gymnasium-style spaces |
-| `run.py`        | state → a chunk of eight actions    | a model with `native_chunk = 8`                   |
-| Observation     | named arrays plus a rendered camera | `{image, state, instruction}`                     |
-
-`DmControlEnv` translates `dm_env` reset, step and specs. `dm_env` marks an episode's end with
-`last()` and a terminal state with a zero `discount`; the wrapper maps that onto `terminated` and
-`truncated`.
-
-`ChunkPolicy` stands in for a VLA action head: it implements `predict_chunk()` and declares
-`native_chunk`, and `run(..., execution_horizon=8)` plays all eight actions before asking for the
-next chunk, so the model runs once every eight env steps. Without `execution_horizon` it would
-replan every step. Its weights are random; replace `predict_chunk()` with your model's inference and
-keep the returned shape `(8, 5)` within the env's action bounds.
-
-## Run
-
-Hardware: CPU. MuJoCo renders with EGL (`MUJOCO_GL=egl`) or, without a GPU driver, OSMesa
-(`MUJOCO_GL=osmesa`, `libosmesa6` on Debian/Ubuntu, `mesa-libOSMesa` on Fedora).
+## Run it
 
 ```bash
-cd python/dm-control
-MUJOCO_GL=egl RLMESH_ADDRESS=127.0.0.1:7447 uv run python -m rlmesh.serve --env bring_ball:BringBall
+MUJOCO_GL=egl uv run --directory python/dm-control python -m rlmesh.serve --env bring_ball:BringBall --address 127.0.0.1:7447
+uv run --directory python/dm-control run.py --episodes 2    # in a second terminal
 ```
 
-In a second terminal:
+It prints `episodes=2 steps=800 model_calls=100`: the model runs once every eight env steps.
 
-```bash
-cd python/dm-control
-uv run run.py --episodes 2
+## The RLMesh part
+
+The env maps `dm_env`'s time steps onto reset and step: `last()` ends an episode and a zero
+`discount` marks it terminal ([`bring_ball.py`](bring_ball.py)):
+
+```python
+def step(self, action):
+    time_step = self._env.step(np.asarray(action, dtype=self._action_dtype))
+    # dm_env ends an episode with last(); a zero discount marks a terminal state.
+    terminated = time_step.last() and time_step.discount == 0.0
+    truncated = time_step.last() and not terminated
+    reward = float(time_step.reward) if time_step.reward is not None else 0.0
+    return self._observation(time_step), reward, terminated, truncated, {}
 ```
 
-```text
-episodes=2 steps=800 model_calls=100
+The model stands in for a VLA action head: it declares its chunk length and returns a chunk per
+call, and `execution_horizon` plays the whole chunk before asking again ([`run.py`](run.py)):
+
+```python
+class ChunkPolicy(Model):
+    native_chunk = CHUNK
+
+    def predict_chunk(self, observation):
+        self.calls += 1
+        chunk = np.tanh(observation["state"] @ self.weights)
+        return chunk.reshape(CHUNK, ACTION_DIM).astype(np.float32)
+
+
+result = model.run(args.address, episodes=args.episodes, execution_horizon=CHUNK)
 ```
 
-Stop the server with Ctrl-C when finished.
+## Needs
+
+CPU. MuJoCo renders the camera with EGL, or OSMesa without a GPU driver (`MUJOCO_GL=osmesa`,
+`libosmesa6` or `mesa-libOSMesa`).
+
+## Next
+
+- Replace `predict_chunk()` with your model's inference, keeping the `(8, 5)` shape within the env's
+  action bounds. Without `execution_horizon` the model replans every step.
+- [`vla-adapters`](../vla-adapters/): chunking with temporal ensembling as a custom adapter.

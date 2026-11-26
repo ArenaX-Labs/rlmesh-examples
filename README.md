@@ -1,47 +1,95 @@
 # RLMesh Examples
 
-Larger examples for [RLMesh](https://github.com/ArenaX-Labs/rlmesh): simulators, containers, VLA
-adapters, LLM agents and native envs. Each folder is self-contained and installs a released
-`rlmesh`, as a user would. For the concepts, start with the
-[RLMesh README](https://github.com/ArenaX-Labs/rlmesh#readme) and its
-[docs](https://rlmesh.dev/docs/); the small API examples live in the
-[rlmesh repository](https://github.com/ArenaX-Labs/rlmesh/tree/main/examples).
+[RLMesh](https://github.com/ArenaX-Labs/rlmesh) connects any model to any simulator, each in its own
+process, container or language. These examples run it on real robot simulators, VLAs, LLM agents, a
+C++ physics engine and Unreal, and each one shows the few lines of RLMesh it takes.
 
-| Example                                                                  | What it adds                                                                            | Hardware                             |
-| ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------- | ------------------------------------ |
-| [`python/hello-env/`](python/hello-env/)                                 | A small Gymnasium env, an `EnvFactory`, and the serve, build and run loop               | CPU                                  |
-| [`python/byo-container/`](python/byo-container/)                         | Hand-written env and model images, run as sandboxes or with your own launcher           | CPU, Docker                          |
-| [`python/sandbox/`](python/sandbox/)                                     | Sandboxes RLMesh builds for you from a Gymnasium id or a Hugging Face EnvHub repo       | CPU, Docker                          |
-| [`python/metaworld/`](python/metaworld/)                                 | An upstream Gymnasium simulator with camera, state and instruction observations         | CPU                                  |
-| [`python/libero/`](python/libero/)                                       | A non-Gymnasium simulator with fixed initial states and bundled assets                  | CPU                                  |
-| [`python/dm-control/`](python/dm-control/)                               | A `dm_env` simulator behind Gymnasium-style calls, and a model that emits action chunks | CPU                                  |
-| [`python/stack-conflict/`](python/stack-conflict/)                       | A SAC checkpoint evaluated on a simulator stack it cannot share a venv with             | CPU                                  |
-| [`python/vla-adapters/`](python/vla-adapters/)                           | Env tags and model specs resolving adapters across many VLA × env pairs                 | CPU                                  |
-| [`python/llm-agent/`](python/llm-agent/)                                 | An LLM agent harness on Prime Environments Hub tasks, locally or as Docker images       | CPU, an OpenAI-compatible LLM server |
-| [`python/coding-agent/`](python/coding-agent/)                           | Claude probes a LIBERO task and writes its policy as code                               | CPU, Claude API key                  |
-| [`python/ur10e-mujoco/`](python/ur10e-mujoco/)                           | A real-time session: a MuJoCo UR10e, a policy, teleop takeover, MCAP recording          | CPU                                  |
-| [`cpp/chrono/`](cpp/chrono/)                                             | A Project Chrono robot served natively from C++ through the RLMesh C ABI                | CPU                                  |
-| [`python/isaacsim/franka-reach/`](python/isaacsim/franka-reach/)         | A batched Isaac Sim Franka reach as a vector env                                        | RTX GPU                              |
-| [`python/isaacsim/ur10e-pick-place/`](python/isaacsim/ur10e-pick-place/) | UR10e grasping with a resolved camera, pose and gripper adapter                         | RTX GPU                              |
+## Gallery
+
+<!-- TODO: record media for the Isaac Sim pick-and-place, Chrono and Unreal tiles on a Windows/GPU machine (paths in each example's README TODO) and a Wordle terminal capture for llm-agent, then add them below. -->
+
+<table>
+<tr>
+<td width="33%" valign="top">
+<a href="python/ur10e-mujoco/"><img src="python/ur10e-mujoco/media/teleop-takeover.gif" alt="A MuJoCo UR10e driven by a policy, taken over by an operator and handed back"></a><br>
+<a href="python/ur10e-mujoco/"><b>UR10e teleop takeover</b></a>: a 1 kHz MuJoCo arm, a policy streaming chunks, an operator who takes over, all recorded to MCAP.
+</td>
+<td width="33%" valign="top">
+<a href="python/libero/"><img src="python/libero/media/libero-object.webp" alt="LIBERO's agentview and wrist cameras while the arm picks up a can"></a><br>
+<a href="python/libero/"><b>LIBERO</b></a>: a non-Gymnasium manipulation benchmark served with cameras, state and an instruction for any VLA.
+</td>
+<td width="33%" valign="top">
+<a href="python/isaacsim/ur10e-pick-place/"><b>Isaac Sim pick and place</b></a>: a UR10e grasps a cube while RLMesh converts camera, pose and gripper conventions between the policy and the simulator.
+</td>
+</tr>
+<tr>
+<td width="33%" valign="top">
+<a href="cpp/chrono/"><b>Project Chrono</b></a>: an industrial robot simulated and served in native C++, driven by a Python model.
+</td>
+<td width="33%" valign="top">
+<a href="unreal/"><b>Unreal demo arena</b></a>: Unreal Engine game worlds as envs, each an actor component a Python policy drives.
+</td>
+<td width="33%" valign="top">
+<a href="python/llm-agent/"><b>LLM agent plays Wordle</b></a>: an LLM harness on Prime Environments Hub tasks, from Wordle to a simulated customer.
+</td>
+</tr>
+</table>
+
+## Start here
+
+Three steps, two commands each, from the repository root:
+
+1. [`hello-env`](python/hello-env/): serve a Gymnasium env and drive it with a policy.
+
+   ```bash
+   uv run --directory python/hello-env python -m rlmesh.serve --env hello_env:HelloEnv --address 127.0.0.1:7447
+   uv run --directory python/hello-env run.py    # in a second terminal
+   ```
+
+2. [`byo-container`](python/byo-container/): put an env and a model in images of your own and run
+   one against the other.
+
+   ```bash
+   for part in env model; do docker build -t my-$part:latest python/byo-container/$part; done
+   uv run --directory python/byo-container run.py
+   ```
+
+3. [`sandbox`](python/sandbox/): let RLMesh build the container from a Gymnasium id or a Hugging
+   Face EnvHub repo.
+
+   ```bash
+   uv run --directory python/sandbox run.py
+   uv run --directory python/sandbox run.py hf
+   ```
+
+## I have…
+
+| I have…                   | Start with                                                                                                                                                                                      |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| a Gymnasium env           | [`hello-env`](python/hello-env/), [`metaworld`](python/metaworld/) (cameras and an instruction), [`stack-conflict`](python/stack-conflict/) (a policy and a simulator that cannot share a venv) |
+| a non-Gymnasium simulator | [`libero`](python/libero/), [`dm-control`](python/dm-control/), [`isaacsim/franka-reach`](python/isaacsim/franka-reach/) (a batched GPU vector env)                                             |
+| a VLA model               | [`vla-adapters`](python/vla-adapters/) (12 model × env pairings, no glue), [`isaacsim/ur10e-pick-place`](python/isaacsim/ur10e-pick-place/), [`dm-control`](python/dm-control/) (action chunks) |
+| an LLM agent              | [`llm-agent`](python/llm-agent/) (Prime Environments Hub tasks), [`coding-agent`](python/coding-agent/) (Claude writes a robot policy as code)                                                  |
+| a real-time robot         | [`ur10e-mujoco`](python/ur10e-mujoco/) (1 kHz control, teleop takeover, MCAP recording)                                                                                                         |
+| a game engine (Unreal)    | [`unreal`](unreal/)                                                                                                                                                                             |
+| a C++ simulator           | [`cpp/chrono`](cpp/chrono/)                                                                                                                                                                     |
+| a container image         | [`byo-container`](python/byo-container/), [`sandbox`](python/sandbox/)                                                                                                                          |
 
 ## Setup
 
-Install [`uv`](https://docs.astral.sh/uv/), and Docker for the container examples. Python examples
-live in `python/`, the C++ one in `cpp/`. Each example has its own `pyproject.toml`; run
-`uv run ...` from its folder and uv creates that folder's environment. Commands in the READMEs start
-from the repository root unless they say otherwise.
+Install [`uv`](https://docs.astral.sh/uv/), and Docker for the image examples. Each example has its
+own `pyproject.toml`; `uv run --directory <example> ...` creates its environment on first use.
 
 Every example pins `rlmesh==0.2.0a2`. Use the same version in a client and the image it talks to:
-`git grep -n -e 0.2.0a2 -e v0.2.0-alpha.2` lists every pin to move together.
-
-A served env or model listens on port 7447, so run one example at a time or pick another port.
+`git grep -n -e 0.2.0a2 -e v0.2.0-alpha.2` lists every pin to move together. A served env or model
+listens on port 7447, so run one example at a time or pick another port.
 
 ## Tests
 
 ```bash
 uv run pytest              # CPU tests, a minute or so
 uv run pytest -m docker    # tests that build and run Docker images
-uv run ruff check . && uv run ruff format --check .
+mise run check             # ruff, and oxfmt for Markdown, TOML and JSON
 ```
 
 The root `pyproject.toml` holds the test and lint tools; the examples do not depend on it.
