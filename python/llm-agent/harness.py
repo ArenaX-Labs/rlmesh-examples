@@ -33,7 +33,9 @@ def openai_chat(model: str, max_tokens: int = DEFAULT_MAX_TOKENS) -> Chat:
     api_key = os.environ.get("OPENAI_API_KEY", "ollama")
     # Managed hands an Anthropic key over as ANTHROPIC_*; its OpenAI-compatible API is under /v1/.
     if os.environ.get("ANTHROPIC_API_KEY"):
-        base_url = os.environ.get("ANTHROPIC_BASE_URL", "https://api.anthropic.com").rstrip("/") + "/v1/"
+        base_url = (
+            os.environ.get("ANTHROPIC_BASE_URL", "https://api.anthropic.com").rstrip("/") + "/v1/"
+        )
         api_key = os.environ["ANTHROPIC_API_KEY"]
     # Messages and tools pass through as plain JSON, not the SDK's TypedDicts.
     client: Any = OpenAI(
