@@ -1,8 +1,14 @@
 # A Terminal-Bench 2 task as an env image: the task's own image plus the terminal_env server,
 # with its own Python under /opt/rlmesh so the task's Python is untouched. Build with
-# docker/build-tb2.sh, which stages the context; there is no RUN, so nothing runs emulated.
+# docker/build-tb2.sh, which stages the context. The only RUN is apt (emulated on an arm64 host).
 ARG TASK_IMAGE
 FROM ${TASK_IMAGE}
+# What the task's test.sh apt-installs: the env pod's egress cannot reach the apt mirrors.
+ARG APT_PACKAGES=""
+RUN if [ -n "$APT_PACKAGES" ]; then \
+      apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y $APT_PACKAGES \
+      && rm -rf /var/lib/apt/lists/*; \
+    fi
 
 COPY python/ /opt/rlmesh/python/
 COPY task/ /opt/rlmesh/task/
