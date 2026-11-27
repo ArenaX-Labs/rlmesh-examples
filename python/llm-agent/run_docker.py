@@ -2,7 +2,7 @@
 
 Both write under one host directory (``--output``, default
 ``./runs/<timestamp>``), each container mounting only its own part: the
-harness ``transcripts/``, the env ``env/``.
+harness ``trajectories/``, the env ``env/``.
 """
 
 from __future__ import annotations
@@ -80,7 +80,7 @@ def main() -> None:
             result = LLMHarness().run(env, seeds=seeds)
         else:
             with rlmesh.SandboxModel(
-                f"image://{args.harness_image}", runtime=runtime("model", "transcripts")
+                f"image://{args.harness_image}", runtime=runtime("model", "trajectories")
             ) as model:
                 result = model.run(env, seeds=seeds)
     finally:

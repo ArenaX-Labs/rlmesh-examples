@@ -9,7 +9,7 @@ ARG RLMESH_VERSION=0.2.0a2
 RUN pip install --no-cache-dir "rlmesh==${RLMESH_VERSION}" openai anthropic
 
 WORKDIR /app
-COPY chat_env.py harness.py fake_llm.py ./
+COPY chat_env.py harness.py trajectory.py fake_llm.py ./
 
 # Ollama on the Docker Desktop host; on Linux pass the bridge gateway (README).
 ARG OPENAI_BASE_URL=http://host.docker.internal:11434/v1

@@ -91,6 +91,7 @@ def _openai_stream(model: str, reply: str | list[dict[str, Any]]) -> bytes:
             "created": 1,
             "model": model,
             "choices": [choice],
+            "usage": {"prompt_tokens": 7, "completion_tokens": 3, "total_tokens": 10},
         }
         for choice in chunks
     )
@@ -248,7 +249,7 @@ def _user_prompts(request: dict[str, Any]) -> list[str]:
 
 @pytest.mark.parametrize("multiple", [False, True], ids=["single", "multiple"])
 def test_pi_round_trips_environment_tool_calls(
-    pi_runtime: Path, fake_llm: _FakeLLM, multiple: bool
+    pi_runtime: Path, fake_llm: _FakeLLM, tmp_path: Path, multiple: bool
 ) -> None:
     harness = _implementation().PiHarness()
     from terminal_env import TOOLS
@@ -263,6 +264,7 @@ def test_pi_round_trips_environment_tool_calls(
 
     seen = {}
     ids = set()
+    ids_in_order = []
     with _episode(harness, "tools") as predict:
         action = predict(*map(_user, prompts))
         for _ in calls:
@@ -274,6 +276,7 @@ def test_pi_round_trips_environment_tool_calls(
             for call in batch:
                 assert call["type"] == "function" and call["id"] and call["id"] not in ids
                 ids.add(call["id"])
+                ids_in_order.append(call["id"])
                 function = call["function"]
                 name = function["name"]
                 assert name not in seen and name in env_results
@@ -288,6 +291,16 @@ def test_pi_round_trips_environment_tool_calls(
     assert seen == {
         call["function"]["name"]: json.loads(call["function"]["arguments"]) for call in calls
     }
+    steps = json.loads((tmp_path / "trajectories/tools.json").read_text())["steps"]
+    called = [step for step in steps if step.get("tool_calls")]
+    assert {
+        call["tool_call_id"]: result["content"]
+        for step in called
+        for call, result in zip(step["tool_calls"], step["observation"]["results"], strict=True)
+        if call["tool_call_id"] == result["source_call_id"]
+    } == {id: env_results[name] for name, id in zip(seen, ids_in_order, strict=True)}
+    assert steps[-1]["message"] == "Finished." and steps[-1]["extra"]["rlmesh_step"] == len(called)
+    assert steps[-1]["metrics"] == {"prompt_tokens": 7, "completion_tokens": 3, "cached_tokens": 0}
     (_, _, first), (_, _, followup) = fake_llm.requests
     sent = "\n".join(_user_prompts(first))
     assert all(prompt in sent for prompt in prompts)
@@ -334,17 +347,17 @@ def test_pi_accepts_later_user_prompts_and_appends_actions(
 ) -> None:
     harness = _implementation().PiHarness()
     fake_llm.script("Starting.", "Continuing.")
-    path = tmp_path / "transcripts/continue.jsonl"
+    path = tmp_path / "trajectories/continue.json"
     prompts = ["Start here.", "Keep going with the tools, or call submit when done."]
     actions = []
 
     with _episode(harness, "continue") as predict:
         for prompt in prompts:
             actions.append(predict(_user(prompt)))
-            records = [json.loads(line) for line in path.read_text().splitlines()]
-            assert [
-                record.get("response", record.get("action", record)) for record in records
-            ] == actions
+            steps = json.loads(path.read_text())["steps"]
+            assert [step["message"] for step in steps if step["source"] == "agent"] == [
+                action["content"] for action in actions
+            ]
 
     assert [action["content"] for action in actions] == ["Starting.", "Continuing."]
     assert [_user_prompts(body) for _, _, body in fake_llm.requests] == [prompts[:1], prompts]

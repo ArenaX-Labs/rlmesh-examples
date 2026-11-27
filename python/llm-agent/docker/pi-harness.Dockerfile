@@ -15,7 +15,7 @@ ARG RLMESH_VERSION=0.2.0a2
 RUN pip install --no-cache-dir "rlmesh==${RLMESH_VERSION}"
 
 WORKDIR /app
-COPY chat_env.py harness.py pi_harness.py pi_tools.js ./
+COPY chat_env.py harness.py trajectory.py pi_harness.py pi_tools.js ./
 
 # PI_MODEL must be in pi's model list for its provider, or served at OPENAI_BASE_URL.
 ARG PI_PROVIDER=anthropic

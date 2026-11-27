@@ -1,7 +1,7 @@
 """An LLM agent as an RLMesh model: one predict is one env interaction.
 
-Within a step the harness may call the LLM several times; every call is logged
-to ``$RLMESH_OUTPUT_DIR/transcripts/<episode_id>.jsonl``.
+Each episode is written as an ATIF trajectory (``trajectory.py``) to
+``$RLMESH_OUTPUT_DIR/trajectories/<episode_id>.json``.
 """
 
 from __future__ import annotations
@@ -15,8 +15,9 @@ from collections.abc import Callable
 from typing import Any
 
 import rlmesh
-from chat_env import Message, append_jsonl, output_dir
+from chat_env import Message, output_dir
 from rlmesh.types import PredictContext
+from trajectory import Trajectory
 
 Chat = Callable[[list[Message], list[dict[str, Any]]], tuple[Message, dict[str, Any] | None]]
 DEFAULT_MODEL = "qwen3:4b"
@@ -194,27 +195,6 @@ def _anthropic_tool(tool: dict[str, Any]) -> dict[str, Any]:
 _DATA_URL = re.compile(r"(data:[\w/+.-]+;base64,)[A-Za-z0-9+/=]+")
 
 
-def redact_images(messages: list[Message]) -> list[Message]:
-    """Return ``messages`` with each image data URL cut to its MIME type and size."""
-    return [
-        {**message, "content": [_redact_part(part) for part in message["content"]]}
-        if isinstance(message.get("content"), list)
-        else message
-        for message in messages
-    ]
-
-
-def _redact_part(part: Any) -> Any:
-    image = part.get("image_url") if isinstance(part, dict) else None
-    url = image.get("url", "") if isinstance(image, dict) else ""
-    if not isinstance(url, str) or not url.startswith("data:"):
-        return part
-    header, _, payload = url.partition(",")
-    mime = header.removeprefix("data:").split(";")[0]
-    redacted = f"data:{mime};base64,<{len(payload)} bytes>"
-    return {**part, "image_url": {**part["image_url"], "url": redacted}}
-
-
 def _log_step(episode: str, step: int, reply: Message, usage: dict[str, Any] | None) -> None:
     """Print one line per step, so a run's log shows what the agent did."""
     said = " ".join(str(reply.get("content") or "").split())
@@ -228,10 +208,6 @@ def _log_step(episode: str, step: int, reply: Message, usage: dict[str, Any] | N
     if thought:
         parts.append(f"thinking={thought[:200]!r}")
     print(" ".join(parts), file=sys.stderr, flush=True)
-
-
-def _without_native(message: Message) -> Message:
-    return {key: value for key, value in message.items() if key != "anthropic_content"}
 
 
 class LLMHarness(rlmesh.Model):
@@ -260,10 +236,8 @@ class LLMHarness(rlmesh.Model):
         self.chat = chat or backend(model, max_tokens)
         self.system_prompt = os.environ.get("OPENAI_SYSTEM_PROMPT", "")
         self.retries = retries
-        self.transcripts = output_dir() / "transcripts"
-        self.transcripts.mkdir(exist_ok=True)
-        self.calls: dict[str, int] = {}
-        self.steps: dict[str, int] = {}
+        self.trajectories = output_dir() / "trajectories"
+        self.trajectories.mkdir(exist_ok=True)
         super().__init__()
 
     def predict(self, observation: str, context: PredictContext) -> str:
@@ -275,59 +249,53 @@ class LLMHarness(rlmesh.Model):
             # A probe samples random text; answer it without the LLM.
             return json.dumps({"role": "assistant", "content": ""})
         tools: list[dict[str, Any]] = obs["tools"]
-        messages: list[Message] = context["state"].setdefault("messages", [])
-        if not messages and self.system_prompt:
-            messages.append({"role": "system", "content": self.system_prompt})
-        messages.extend(obs["messages"])
+        state = context["state"]
+        messages: list[Message] = state.setdefault("messages", [])
         episode = context["episode_id"] or "episode"
-        self.steps[episode] = context["predict_index"] + 1
+        trajectory: Trajectory = state.get("trajectory") or state.setdefault(
+            "trajectory",
+            Trajectory(
+                self.trajectories / f"{episode}.json",
+                episode,
+                context["episode_seed"],
+                "llm-harness",
+                self.model_name,
+            ),
+        )
+        new: list[Message] = obs["messages"]
+        if not messages and self.system_prompt:
+            new = [{"role": "system", "content": self.system_prompt}, *new]
+        messages.extend(new)
+        trajectory.observe(new, tools)
         reply: Message = {"role": "assistant", "content": ""}
-        usage: dict[str, Any] | None = None
+        usages: list[dict[str, Any]] = []
+        error: str | None = None
         step_started = time.monotonic()
-        for _ in range(1 + self.retries):
-            call = self.calls.get(episode, 0)
-            self.calls[episode] = call + 1
-            record: dict[str, Any] = {
-                "step": context["predict_index"],
-                "seed": context["episode_seed"],
-                "call": call,
-                "request": {
-                    "model": self.model_name,
-                    "messages": redact_images([_without_native(m) for m in messages]),
-                    "tools": tools,
-                },
-            }
-            started = time.monotonic()
-            try:
+        try:
+            for _ in range(1 + self.retries):
+                started = time.monotonic()
                 reply, usage = self.chat(messages, tools)
-                record.update(response=_without_native(reply), usage=usage)
-            except Exception as exc:
-                record["error"] = _DATA_URL.sub(r"\1<redacted>", repr(exc))
-                raise
-            finally:
-                record["latency_ms"] = round((time.monotonic() - started) * 1000, 1)
-                record["ts"] = time.time()
-                append_jsonl(self.transcripts / f"{episode}.jsonl", record)
-            if reply.get("content") or reply.get("tool_calls"):
-                break
-            now = time.monotonic()
-            if now - step_started + (now - started) > STEP_BUDGET_S:
-                break
-        _log_step(episode, context["predict_index"], reply, usage)
+                if usage:
+                    usages.append(usage)
+                if reply.get("content") or reply.get("tool_calls"):
+                    break
+                now = time.monotonic()
+                if now - step_started + (now - started) > STEP_BUDGET_S:
+                    break
+        except Exception as exc:
+            error = _DATA_URL.sub(r"\1<redacted>", repr(exc))
+            raise
+        finally:
+            trajectory.reply(
+                reply,
+                usages,
+                rlmesh_step=context["predict_index"],
+                latency_ms=round((time.monotonic() - step_started) * 1000, 1),
+                error=error,
+            )
+            trajectory.save()
+        _log_step(episode, context["predict_index"], reply, usages[-1] if usages else None)
         reply.pop("reasoning", None)
         native = reply.pop("anthropic_content", None)
         messages.append({**reply, "anthropic_content": native} if native else reply)
         return json.dumps(reply)
-
-    def on_episode_end(self, episode_id: str = "") -> None:
-        episode = episode_id or "episode"
-        append_jsonl(
-            self.transcripts / f"{episode}.jsonl",
-            {
-                "event": "episode_end",
-                "episode_id": episode_id,
-                "steps": self.steps.pop(episode, 0),
-                "calls": self.calls.pop(episode, 0),
-                "ts": time.time(),
-            },
-        )

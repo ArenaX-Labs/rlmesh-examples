@@ -22,9 +22,10 @@ from queue import Empty, Queue
 from typing import Any
 
 import rlmesh
-from chat_env import Message, append_jsonl, output_dir
-from harness import STEP_BUDGET_S, _text, redact_images
+from chat_env import Message, output_dir
+from harness import STEP_BUDGET_S, _text
 from rlmesh.types import PredictContext
+from trajectory import Trajectory
 
 EXTENSION = Path(__file__).resolve().with_name("pi_tools.js")
 
@@ -69,6 +70,9 @@ class _Pi:
         self.ids = itertools.count()
         self.events: Queue[dict[str, Any] | None] = Queue()
         self.pending: dict[str, str] = {}
+        # What the trajectory records of the turn being answered; never sent to the env.
+        self.reasoning: list[str] = []
+        self.usages: list[dict[str, Any]] = []
         # After an abort, events of the abandoned turn can still arrive; skip to the next agent_start.
         self.stale = False
         threading.Thread(target=self._read, args=(self.process, self.events), daemon=True).start()
@@ -158,6 +162,17 @@ class _Pi:
             elif kind == "message_end" and event["message"]["role"] == "assistant":
                 content = event["message"]["content"]
                 text = "".join(part["text"] for part in content if part["type"] == "text")
+                self.reasoning += [p["thinking"] for p in content if p["type"] == "thinking"]
+                if usage := event["message"].get("usage"):
+                    self.usages.append(
+                        {
+                            "input_tokens": usage["input"],
+                            "output_tokens": usage["output"],
+                            "cache_read_input_tokens": usage["cacheRead"],
+                            "cache_creation_input_tokens": usage["cacheWrite"],
+                            "stop_reason": event["message"].get("stopReason"),
+                        }
+                    )
                 calls = [part["id"] for part in content if part["type"] == "toolCall"]
             elif kind == "tool_execution_end":
                 ended.add(event["toolCallId"])
@@ -229,8 +244,8 @@ class PiHarness(rlmesh.Model):
         command = pi_command or os.environ.get("PI_COMMAND", "pi").split()
         # pi starts in its own temp cwd, so a relative executable would not resolve there.
         self.pi_command = [os.path.abspath(shutil.which(command[0]) or command[0]), *command[1:]]
-        self.transcripts = output_dir() / "transcripts"
-        self.transcripts.mkdir(exist_ok=True)
+        self.trajectories = output_dir() / "trajectories"
+        self.trajectories.mkdir(exist_ok=True)
         # TODO: an episode torn down without on_episode_end (served-path teardown fires no hook) keeps
         # its pi process until close(); reap idle processes once long-lived servers leak them.
         self.episodes: dict[str, _Pi] = {}
@@ -251,21 +266,27 @@ class PiHarness(rlmesh.Model):
         if pi is None:
             system = "\n\n".join(_text(m.get("content")) for m in messages if m["role"] == "system")
             pi = self.episodes[episode] = _Pi(self.pi_command, obs.get("tools") or [], system)
-        action = pi.step(messages, started + STEP_BUDGET_S)
-        append_jsonl(
-            self.transcripts / f"{episode}.jsonl",
-            {
-                "step": context["predict_index"],
-                "seed": context["episode_seed"],
-                "request": {
-                    "model": os.environ.get("PI_MODEL"),
-                    "messages": redact_images(messages),
-                },
-                "response": action,
-                "latency_ms": round((time.monotonic() - started) * 1000, 1),
-                "ts": time.time(),
-            },
+        state = context["state"]
+        trajectory: Trajectory = state.get("trajectory") or state.setdefault(
+            "trajectory",
+            Trajectory(
+                self.trajectories / f"{episode}.json",
+                episode,
+                context["episode_seed"],
+                "pi",
+                os.environ.get("PI_MODEL", ""),
+            ),
         )
+        trajectory.observe(messages, obs.get("tools") or [])
+        pi.reasoning, pi.usages = [], []
+        action = pi.step(messages, started + STEP_BUDGET_S)
+        trajectory.reply(
+            {**action, "reasoning": "\n\n".join(pi.reasoning)},
+            pi.usages,
+            rlmesh_step=context["predict_index"],
+            latency_ms=round((time.monotonic() - started) * 1000, 1),
+        )
+        trajectory.save()
         return json.dumps(action)
 
     def on_episode_end(self, episode_id: str = "") -> None:
