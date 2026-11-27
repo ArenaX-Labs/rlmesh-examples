@@ -8,6 +8,7 @@ COPY python/ /opt/rlmesh/python/
 COPY task/ /opt/rlmesh/task/
 # The task's test.sh installs uv with curl; the platform's egress allows neither host, so it ships here.
 COPY uv/ /root/.local/bin/
+COPY fonts/ /usr/share/fonts/truetype/rlmesh/
 
 ENV RLMESH_OUTPUT_DIR=/rlmesh/output/env \
     RLMESH_NAME=env \

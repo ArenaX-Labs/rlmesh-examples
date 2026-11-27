@@ -25,6 +25,13 @@ if [ ! -x "$ctx/python/bin/python3" ]; then
   uv pip install --quiet --python-platform x86_64-manylinux_2_28 --python-version 3.12 \
     --target "$ctx/python/lib/python3.12/site-packages" "rlmesh==$RLMESH_VERSION" pillow numpy
 fi
+if [ ! -f "$ctx/fonts/DejaVuSansMono.ttf" ]; then
+  # Task images rarely ship fonts; the frames want DejaVu, which matplotlib's wheel bundles.
+  rm -rf "$cache/mpl" "$ctx/fonts" && mkdir -p "$ctx/fonts"
+  uv pip install --quiet --no-deps --python-platform x86_64-manylinux_2_28 --python-version 3.12 \
+    --target "$cache/mpl" matplotlib==3.10.3
+  cp "$cache/mpl/matplotlib/mpl-data/fonts/ttf/"DejaVuSans{,-Bold,Mono,Mono-Bold}.ttf "$ctx/fonts/"
+fi
 cp chat_env.py render.py terminal_env.py "$ctx/python/lib/python3.12/site-packages/"
 
 for task in "$@"; do

@@ -35,6 +35,10 @@ jobs:
       - name: Install EGL
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libegl1 libgl1-mesa-dri
 
+      # The pi harness tests run the pinned pi; Node comes from mise.
+      - name: Install pi
+        run: npm install --prefix python/llm-agent/.venv-pi --save-exact @mariozechner/pi-coding-agent@0.73.1
+
       - name: Lint
         run: mise run check
 

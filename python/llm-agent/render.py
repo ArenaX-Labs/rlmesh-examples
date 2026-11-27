@@ -4,11 +4,15 @@ Every frame shows the model's latest reply and the task's latest message. When
 the task answers in Wordle-style feedback (a row of letters over a row of
 ``G``/``Y``/``X``), the frame is a game view instead: the board, the latest
 guess and feedback, and a keyboard of what each letter is known to be.
+``terminal_frame`` draws a shell task (``terminal_env.py``): the task, the
+model's latest reply, a strip of every tool call's outcome, and the shell
+session with the tests' output once they ran.
 """
 
 from __future__ import annotations
 
 import functools
+import json
 import re
 from typing import Any
 
@@ -38,7 +42,19 @@ FONTS = {
     "semibold": ("Inter-SemiBold.otf", "DejaVuSans-Bold.ttf"),
     "regular": ("Inter-Regular.otf", "DejaVuSans.ttf"),
     "mono": ("JetBrainsMono-Bold.ttf", "DejaVuSansMono-Bold.ttf"),
+    "terminal": ("JetBrainsMono-Regular.ttf", "DejaVuSansMono.ttf"),
 }
+TERMINAL_BG = (9, 11, 15)
+GOOD, BAD, WARN = (128, 224, 160), (255, 150, 150), (232, 190, 90)
+OUTCOME = {
+    "ok": TILE["G"],
+    "failed": (196, 72, 72),
+    "timeout": TILE["Y"],
+    "write": (86, 118, 214),
+    "submit": (150, 110, 220),
+    "pending": KEY,
+}
+ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]|\x1b\][^\x07]*\x07")
 
 
 @functools.cache
@@ -75,9 +91,7 @@ def frame(
     messages: list[dict[str, Any]], name: str, task_id: str, success: bool | None = None
 ) -> np.ndarray:
     """A ``HEIGHT x WIDTH x 3`` uint8 frame of the chat so far; ``success`` once the episode ended."""
-    gradient = np.linspace(BG_TOP, BG_BOTTOM, HEIGHT).astype(np.uint8)
-    image = Image.fromarray(np.repeat(gradient[:, None, :], WIDTH, axis=1))
-    draw = ImageDraw.Draw(image)
+    image, draw = _canvas()
     messages = [m for m in messages if m.get("role") != "system"]
     rows = board(messages)
     if rows or name.lower() == "wordle":
@@ -86,10 +100,185 @@ def frame(
     else:
         _header(draw, name.replace("_", " ").title(), f"task {task_id}", None)
         _chat(draw, messages)
+    _footer(draw, messages)
+    return np.asarray(image)
+
+
+def tool_calls(messages: list[dict[str, Any]]) -> list[tuple[str, dict[str, Any], str | None]]:
+    """Every ``(name, arguments, result)`` tool call in ``messages``; ``result`` is None until answered."""
+    calls: list[list[Any]] = []
+    open_calls: dict[Any, list[Any]] = {}
+    for message in messages:
+        if message.get("role") == "assistant":
+            open_calls = {}
+            for call in message.get("tool_calls") or []:
+                function = call.get("function") or {}
+                try:
+                    args = json.loads(function.get("arguments") or "{}")
+                except ValueError:
+                    args = {}
+                entry = [function.get("name") or "?", args if isinstance(args, dict) else {}, None]
+                calls.append(entry)
+                open_calls[call.get("id")] = entry
+        elif message.get("role") == "tool" and message.get("tool_call_id") in open_calls:
+            open_calls[message["tool_call_id"]][2] = text_of(message.get("content"))
+    return [(name, args, result) for name, args, result in calls]
+
+
+def outcome(name: str, result: str | None) -> str:
+    """``ok``, ``failed``, ``timeout``, ``write``, ``submit`` or ``pending``."""
+    if name == "submit":
+        return "submit"
+    if result is None:
+        return "pending"
+    if name == "write_file":
+        return "write" if result.startswith("wrote ") else "failed"
+    if result.startswith(("timed out", "skipped")):
+        return "timeout"
+    return "ok" if result.split("\n", 1)[0] == "exit code 0" else "failed"
+
+
+def terminal_frame(
+    messages: list[dict[str, Any]],
+    name: str,
+    instruction: str,
+    cwd: str,
+    turns: tuple[int, int],
+    success: bool | None,
+    verifier_log: str | None,
+) -> np.ndarray:
+    """A ``HEIGHT x WIDTH x 3`` uint8 frame of a shell task; ``success`` once the tests ran."""
+    image, draw = _canvas()
+    calls = tool_calls(messages)
+    task = name.rsplit("/", 1)[-1]
+    if success is None:
+        status = ("playing", f"TURN {turns[0]} OF {turns[1]}")
+    else:
+        status = ("solved", "TESTS PASSED") if success else ("lost", "TESTS FAILED")
+    _header(draw, "Terminal-Bench", task, status)
+
+    left, right, top, bottom = MARGIN, MARGIN + 380, 128, HEIGHT - 64
+    _panel(draw, (left, top, right, top + 196), "TASK")
+    _lines(draw, instruction, (left + 24, top + 48), right - left - 48, 6, 16, 22)
+
+    model_top = top + 212
+    _panel(draw, (left, model_top, right, model_top + 168), "MODEL", accent=True)
+    reply = next((m for m in reversed(messages) if m.get("role") == "assistant"), None)
+    said = text_of(reply.get("content")).strip() if reply else ""
+    asked = tool_calls([reply]) if reply else []
+    if reply is None:
+        said = "Reading the task"
+    for name, args, _ in asked:
+        detail = str(args.get("command") or args.get("path") or "").strip().split("\n")[0]
+        said += ("\n" if said else "") + f"→ {name} {detail}".rstrip()
+    _lines(draw, said or "(empty reply)", (left + 24, model_top + 48), right - left - 48, 5, 16, 22)
+
+    strip_top = model_top + 184
+    _panel(draw, (left, strip_top, right, bottom), "TOOL CALLS")
+    kinds = [outcome(n, r) for n, _, r in calls]
+    counts = (
+        f"{sum(n == 'run_shell' for n, _, _ in calls)} commands  ·  "
+        f"{kinds.count('failed')} failed  ·  {kinds.count('write')} files"
+    )
+    draw.text((left + 24, strip_top + 46), counts, font=font("regular", 15), fill=SOFT)
+    size, gap = 14, 4
+    per_row = int((right - left - 48 + gap) // (size + gap))
+    rows = max(1, int((bottom - strip_top - 84 + gap) // (size + gap)))
+    for i, kind in enumerate(kinds[-per_row * rows :]):
+        x = left + 24 + (i % per_row) * (size + gap)
+        y = strip_top + 76 + (i // per_row) * (size + gap)
+        draw.rounded_rectangle((x, y, x + size, y + size), 3, OUTCOME[kind])
+
+    box = (right + 24, top, WIDTH - MARGIN, bottom)
+    _terminal(draw, box, f"root@{task}: {cwd}", _session(calls, verifier_log, success))
+    _footer(draw, messages)
+    return np.asarray(image)
+
+
+def _session(calls, verifier_log: str | None, success: bool | None) -> list[tuple[str, tuple]]:
+    """The shell session as ``(line, colour)``: older calls' output cut short, the latest in full."""
+    lines: list[tuple[str, tuple]] = []
+
+    def body(text: str, keep: int, colour=SOFT) -> None:
+        rows = [_clean(row) for row in text.rstrip("\n").split("\n")] if text.strip() else []
+        if len(rows) > keep:
+            lines.append((f"  … {len(rows) - keep} more lines", MUTED))
+            rows = rows[-keep:]
+        lines.extend((row, colour) for row in rows)
+
+    for i, (name, args, result) in enumerate(calls):
+        keep = 40 if i == len(calls) - 1 else 6
+        if name == "run_shell":
+            command = str(args.get("command", "")).strip().split("\n")
+            lines.append(("$ " + command[0], ACCENT))
+            lines.extend(("> " + row, ACCENT) for row in command[1:3])
+            if len(command) > 3:
+                lines.append((f"> … {len(command) - 3} more lines", ACCENT))
+            if result is None:
+                continue
+            head, _, rest = result.partition("\n")
+            body(rest, keep)
+            if outcome(name, result) == "timeout":
+                lines.append((f"[{head}]", WARN))
+            elif head != "exit code 0":
+                lines.append((f"[{head}]", BAD))
+        elif name == "write_file":
+            content = str(args.get("content", ""))
+            path = args.get("path", "?")
+            lines.append(
+                (f"# write_file {path} ({len(content.splitlines())} lines)", OUTCOME["write"])
+            )
+            body(content, min(keep, 8), MUTED)
+        elif name == "submit":
+            lines.append(("$ bash /tests/test.sh", ACCENT))
+        else:
+            lines.append((f"# {name}: {result or ''}", BAD))
+    if verifier_log is not None:
+        if not any(name == "submit" for name, _, _ in calls):
+            lines.append(("# out of turns; $ bash /tests/test.sh", WARN))
+        body(verifier_log, 40)
+    if success is not None:
+        lines.append(("tests passed" if success else "tests failed", GOOD if success else BAD))
+    return lines
+
+
+def _clean(line: str) -> str:
+    """One output line as a terminal shows it: no colour codes, tabs expanded, last ``\\r`` rewrite."""
+    return ANSI.sub("", line).rsplit("\r", 1)[-1].expandtabs(4)
+
+
+def _terminal(draw: ImageDraw.ImageDraw, box, title: str, lines) -> None:
+    """A terminal window at ``box`` scrolled to the end of ``lines``."""
+    x0, y0, x1, y1 = box
+    draw.rounded_rectangle(box, 14, TERMINAL_BG, LINE, 1)
+    for i, colour in enumerate(((196, 72, 72), TILE["Y"], TILE["G"])):
+        draw.ellipse((x0 + 20 + i * 20, y0 + 15, x0 + 32 + i * 20, y0 + 27), colour)
+    centre = ((x0 + x1) / 2, y0 + 21)
+    draw.text(centre, title, font=font("terminal", 13), fill=MUTED, anchor="mm")
+    draw.line((x0, y0 + 42, x1, y0 + 42), fill=LINE, width=1)
+    face, height = font("terminal", 14), 19
+    columns = max(20, int((x1 - x0 - 40) // draw.textlength("M", font=face)))
+    rows = int((y1 - y0 - 64) // height)
+    wrapped: list[tuple[str, tuple]] = []
+    for text, colour in lines:
+        pieces = [text[i : i + columns] for i in range(0, len(text), columns)] or [""]
+        if len(pieces) > 3:
+            pieces = pieces[:2] + [pieces[2][: columns - 1] + "…"]
+        wrapped.extend((piece, colour) for piece in pieces)
+    for i, (text, colour) in enumerate(wrapped[-rows:]):
+        draw.text((x0 + 20, y0 + 56 + i * height), text, font=face, fill=colour)
+
+
+def _canvas() -> tuple[Image.Image, ImageDraw.ImageDraw]:
+    gradient = np.linspace(BG_TOP, BG_BOTTOM, HEIGHT).astype(np.uint8)
+    image = Image.fromarray(np.repeat(gradient[:, None, :], WIDTH, axis=1))
+    return image, ImageDraw.Draw(image)
+
+
+def _footer(draw: ImageDraw.ImageDraw, messages) -> None:
     steps = sum(m.get("role") == "assistant" for m in messages)
     label = f"env.render()  ·  step {steps}"
     draw.text((MARGIN, HEIGHT - 36), label, font=font("regular", 14), fill=MUTED, anchor="lm")
-    return np.asarray(image)
 
 
 def _with_final_guess(messages, rows, success: bool | None) -> list[tuple[str, str]]:
@@ -244,13 +433,15 @@ def _panel(draw: ImageDraw.ImageDraw, box, label: str, accent: bool = False) -> 
     draw.text((box[0] + 24, box[1] + 20), label, font=font("semibold", 13), fill=MUTED)
 
 
-def _lines(draw: ImageDraw.ImageDraw, text: str, at, width: float, limit: int) -> None:
-    body = font("regular", 19)
+def _lines(
+    draw: ImageDraw.ImageDraw, text: str, at, width: float, limit: int, size=19, height=28
+) -> None:
+    body = font("regular", size)
     lines = _wrap(draw, text, body, width)
     if len(lines) > limit:
         lines = lines[: limit - 1] + [lines[limit - 1].rstrip(" .,") + " …"]
     for i, line in enumerate(lines):
-        draw.text((at[0], at[1] + 28 * i), line, font=body, fill=SOFT)
+        draw.text((at[0], at[1] + height * i), line, font=body, fill=SOFT)
 
 
 def _wrap(draw: ImageDraw.ImageDraw, text: str, face, width: float) -> list[str]:
