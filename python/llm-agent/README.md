@@ -138,23 +138,23 @@ and [`run.py`](run.py) is `LLMHarness(...).run(args.address, seeds=list(range(ar
   `CAP_SYS_PTRACE` it cannot read the non-dumpable server's memory. A step that submits keeps 150 s
   of the runner's 300 s step limit for the tests.
 
-- **pi.** [`pi_harness.py`](pi_harness.py) runs the [pi](https://github.com/badlogic/pi-mono)
-  coding agent per episode with only the env's tools ([`pi_tools.js`](pi_tools.js)); each tool call
-  becomes the action and runs in the env. `PI_PROVIDER` and `PI_MODEL` pick the model
-  (`openai` with `OPENAI_BASE_URL` for an OpenAI-compatible server); `docker/pi-harness.Dockerfile`
-  builds it. Tests need `npm install --prefix .venv-pi --save-exact @mariozechner/pi-coding-agent@0.73.1`.
+- **pi.** [`pi_harness.py`](pi_harness.py) runs the [pi](https://github.com/badlogic/pi-mono) coding
+  agent per episode with only the env's tools ([`pi_tools.js`](pi_tools.js)); each tool call becomes
+  the action and runs in the env. `PI_PROVIDER` and `PI_MODEL` pick the model (`openai` with
+  `OPENAI_BASE_URL` for an OpenAI-compatible server); `docker/pi-harness.Dockerfile` builds it.
+  Tests need `npm install --prefix .venv-pi --save-exact @mariozechner/pi-coding-agent@0.73.1`.
 
 - **Video.** Every chat env offers `render()` ([`render.py`](render.py)), a 1280×720 frame: the
   latest messages of the chat, or, when the task answers in Wordle-style `G`/`Y`/`X` rows, the
   board, the latest guess and feedback, and a keyboard. A Terminal-Bench task draws the task, the
   model's latest reply, every tool call's outcome and the shell session, ending on the tests'
-  output. RLMesh records it as the `render` camera;
-  ask for one frame per second with `"record": {"video": {"raw": ["render"], "fps": 1}}`.
+  output. RLMesh records it as the `render` camera; ask for one frame per second with
+  `"record": {"video": {"raw": ["render"], "fps": 1}}`.
 - **Output.** Both sides write under `$RLMESH_OUTPUT_DIR` (default `./runs/<timestamp>`):
   `transcripts/<episode_id>.jsonl` from the harness (one line per LLM call with the step, the
   episode seed (which RLMesh also records per episode), the request, the reply, its `reasoning` when
   the provider returns one, and usage; then `episode_end`) and `env/seed-<seed>.jsonl` from the env
   (one line per finished episode). The harness also prints one line per step to stderr (reply, tool
-  calls, tokens, start of the thinking), which Managed shows as the model log. The pi harness
-  writes one line per step instead: the step, the episode seed, the request (`PI_MODEL` and the
+  calls, tokens, start of the thinking), which Managed shows as the model log. The pi harness writes
+  one line per step instead: the step, the episode seed, the request (`PI_MODEL` and the
   observation's messages), pi's action and the latency.
