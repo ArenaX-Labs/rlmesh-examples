@@ -133,12 +133,16 @@ and [`run.py`](run.py) is `LLMHarness(...).run(args.address, seeds=list(range(ar
   `docker/build-tb2.sh TB2_CHECKOUT REGISTRY/NAMESPACE TAG TASK...` layers the server, its own
   Python and uv onto each task's published image without running anything emulated. The environment
   state is the container's filesystem, so give every episode its own workload:
-  `"episodes": N, "workers": N`. The tests sit in the image under `/opt/rlmesh/task`, readable by an
-  agent that goes looking.
+  `"episodes": N, "workers": N`. The tests ship in the image, but the server reads them into memory
+  and deletes them before the agent's first command. The agent's shell runs as root, yet without
+  `CAP_SYS_PTRACE` it cannot read the non-dumpable server's memory. A step that submits keeps 150 s
+  of the runner's 300 s step limit for the tests.
 
 - **Video.** Every chat env offers `render()` ([`render.py`](render.py)), a 1280×720 frame: the
   latest messages of the chat, or, when the task answers in Wordle-style `G`/`Y`/`X` rows, the
-  board, the latest guess and feedback, and a keyboard. RLMesh records it as the `render` camera;
+  board, the latest guess and feedback, and a keyboard. A Terminal-Bench task draws the task, the
+  model's latest reply, every tool call's outcome and the shell session, ending on the tests'
+  output. RLMesh records it as the `render` camera;
   ask for one frame per second with `"record": {"video": {"raw": ["render"], "fps": 1}}`.
 - **Output.** Both sides write under `$RLMESH_OUTPUT_DIR` (default `./runs/<timestamp>`):
   `transcripts/<episode_id>.jsonl` from the harness (one line per LLM call with the step, the

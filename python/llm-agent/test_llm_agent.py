@@ -4,6 +4,7 @@ import contextlib
 import json
 import re
 import sys
+import time
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
 from typing import Any
@@ -652,6 +653,7 @@ def test_terminal_task_runs_tools_and_grades_with_hidden_tests(
         return env.step(json.dumps({"role": "assistant", "content": "", "tool_calls": tool_calls}))
 
     env = terminal_env.TerminalTask()
+    assert not (task / "tests").exists() and terminal_env.TerminalTask().tests == env.tests
     obs, _ = env.reset(seed=0)
     first = json.loads(obs)
     assert "Put 42" in first["messages"][0]["content"]
@@ -660,16 +662,25 @@ def test_terminal_task_runs_tools_and_grades_with_hidden_tests(
     obs, _, done, _, _ = act(
         ("write_file", {"path": "answer.txt", "content": "42\n"}),
         ("run_shell", {"command": "cat answer.txt; env"}),
+        ("run_shell", {"command": "sleep 5 & echo started"}),
     )
     results = json.loads(obs)["messages"]
-    assert not done and [m["tool_call_id"] for m in results] == ["c0", "c1"]
+    assert not done and [m["tool_call_id"] for m in results] == ["c0", "c1", "c2"]
     assert results[1]["content"].startswith("exit code 0\n42")
     assert "RLMESH_OUTPUT_DIR" not in results[1]["content"]
+    assert results[2]["content"] == "exit code 0\nstarted\n"
     assert not (tmp_path / "tests").exists()
 
-    _, reward, done, truncated, info = act(("submit", {}))
+    # A step that submits keeps the verifier's share of the budget from its commands.
+    monkeypatch.setattr(terminal_env, "STEP_BUDGET_S", 6.0)
+    monkeypatch.setattr(terminal_env, "VERIFIER_BUDGET_S", 4.0)
+    started = time.monotonic()
+    obs, reward, done, truncated, info = act(("run_shell", {"command": "sleep 5"}), ("submit", {}))
+    assert time.monotonic() - started < 4
+    assert json.loads(obs)["messages"][0]["content"].startswith("timed out after 2s")
     assert (reward, done, truncated, info["is_success"]) == (1.0, True, False, True)
     assert info["task_id"] == "terminal-bench/answer" and info["turns"] == 2
+    assert env.render().shape == (720, 1280, 3)
 
 
 def test_render_draws_each_wordle_row_and_the_latest_turn(
