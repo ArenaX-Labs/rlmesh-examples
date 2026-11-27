@@ -16,6 +16,7 @@ import sys
 import tempfile
 import threading
 import time
+from contextlib import suppress
 from pathlib import Path
 from queue import Empty, Queue
 from typing import Any
@@ -42,28 +43,39 @@ class _Pi:
         for flag, var in (("--provider", "PI_PROVIDER"), ("--model", "PI_MODEL")):
             if os.environ.get(var):
                 self.args += [flag, os.environ[var]]
-        # A fresh agent dir and cwd keep pi off ~/.pi and any .pi/ (auth, settings, SYSTEM.md).
+        # A fresh agent dir, cwd and HOME keep pi off ~/.pi, any .pi/ and ambient cloud credentials.
         self.home = tempfile.mkdtemp(prefix="pi-agent-")
-        self.env = {
+        self.stderr = Path(self.home) / "stderr.log"
+        env = {
             **os.environ,
+            "HOME": self.home,
             "PI_CODING_AGENT_DIR": self.home,
             "PI_ENV_TOOLS": json.dumps(tools),
             "PI_ENV_SYSTEM": system,
         }
+        try:
+            with self.stderr.open("wb") as stderr:
+                self.process = subprocess.Popen(
+                    self.args,
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=stderr,
+                    env=env,
+                    cwd=self.home,
+                )
+        except BaseException:
+            shutil.rmtree(self.home, ignore_errors=True)
+            raise
         self.ids = itertools.count()
-        self._start()
-
-    def _start(self) -> None:
-        self.process = subprocess.Popen(
-            self.args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, env=self.env, cwd=self.home
-        )
         self.events: Queue[dict[str, Any] | None] = Queue()
         self.pending: dict[str, str] = {}
         # After an abort, events of the abandoned turn can still arrive; skip to the next agent_start.
         self.stale = False
         threading.Thread(target=self._read, args=(self.process, self.events), daemon=True).start()
-        # A retry starts after agent_end, which predict already took as the final reply.
+        # A retry starts after agent_end, which predict already took as the final reply; a compaction
+        # would rewrite the history the env's observations assume.
         self._send({"type": "set_auto_retry", "enabled": False})
+        self._send({"type": "set_auto_compaction", "enabled": False})
 
     @staticmethod
     def _read(process: subprocess.Popen[bytes], events: Queue[dict[str, Any] | None]) -> None:
@@ -75,10 +87,20 @@ class _Pi:
                 pass
         events.put(None)
 
+    # TODO: a wedged pi that stops reading stdin blocks this write past the step budget; bound it
+    # (writer thread or non-blocking pipe) once a stalled pi is seen holding a predict.
     def _send(self, command: dict[str, Any]) -> None:
         assert self.process.stdin
-        self.process.stdin.write(json.dumps(command).encode() + b"\n")
-        self.process.stdin.flush()
+        try:
+            self.process.stdin.write(json.dumps(command).encode() + b"\n")
+            self.process.stdin.flush()
+        except BrokenPipeError:
+            raise self._exited() from None
+
+    def _exited(self) -> RuntimeError:
+        code = self.process.wait()
+        log = self.stderr.read_bytes()[-2000:].decode(errors="replace").strip()
+        return RuntimeError(f"pi exited with code {code}: {log}")
 
     def _next(self, deadline: float) -> dict[str, Any] | None:
         try:
@@ -86,7 +108,7 @@ class _Pi:
         except Empty:
             return None
         if event is None:
-            raise RuntimeError(f"pi exited with code {self.process.wait()}")
+            raise self._exited()
         return event
 
     def _request(self, command: dict[str, Any], deadline: float) -> dict[str, Any] | None:
@@ -113,12 +135,11 @@ class _Pi:
         action = self._reply(abort_at)
         if action is None:
             # Abort waits for pi to go idle, which also cancels its pending tool calls.
-            if self._request({"type": "abort"}, deadline):
-                self.pending.clear()
-                self.stale = True
-            else:
+            if not self._request({"type": "abort"}, deadline):
                 self._kill()
-                self._start()
+                raise RuntimeError("pi did not stop its timed-out turn; killed it")
+            self.pending.clear()
+            self.stale = True
             return _empty()
         return action
 
@@ -186,6 +207,9 @@ class _Pi:
         self.process.wait()
 
     def close(self) -> None:
+        assert self.process.stdin
+        with suppress(BrokenPipeError):
+            self.process.stdin.close()
         self.process.terminate()
         try:
             self.process.wait(timeout=5)
@@ -202,7 +226,9 @@ class PiHarness(rlmesh.Model):
     """
 
     def __init__(self, pi_command: list[str] | None = None) -> None:
-        self.pi_command = pi_command or os.environ.get("PI_COMMAND", "pi").split()
+        command = pi_command or os.environ.get("PI_COMMAND", "pi").split()
+        # pi starts in its own temp cwd, so a relative executable would not resolve there.
+        self.pi_command = [os.path.abspath(shutil.which(command[0]) or command[0]), *command[1:]]
         self.transcripts = output_dir() / "transcripts"
         self.transcripts.mkdir(exist_ok=True)
         # TODO: an episode torn down without on_episode_end (served-path teardown fires no hook) keeps

@@ -513,7 +513,7 @@ def test_pi_ignores_user_agent_dirs_and_uses_injected_key(
         assert {path.name: path.read_text() for path in directory.iterdir()} == planted
 
 
-def test_pi_timeout_without_abort_ack_restarts_and_drops_stale_turn(
+def test_pi_timeout_without_abort_ack_kills_pi_and_raises(
     pi_runtime: Path, fake_llm: _FakeLLM, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     module = _implementation()
@@ -534,17 +534,56 @@ def test_pi_timeout_without_abort_ack_restarts_and_drops_stale_turn(
         release.wait(timeout=6)
         return "Stale reply."
 
-    fake_llm.script(stall, "Recovered.")
+    fake_llm.script(stall)
     with _episode(harness, "no-ack") as predict:
         started = time.monotonic()
         try:
-            assert predict(_user("Wait.")) == {"role": "assistant", "content": ""}
+            with pytest.raises(RuntimeError):
+                predict(_user("Wait."))
             assert time.monotonic() - started < 3.5
         finally:
             release.set()
-        assert predict(_user("Try again.")) == {"role": "assistant", "content": "Recovered."}
-        first, second = _pids(pi_runtime)
-        assert not _alive(first) and _alive(second)
+        (pid,) = _pids(pi_runtime)
+        assert not _alive(pid)
+
+
+def test_pi_runs_from_relative_command_without_compaction_or_user_home(
+    pi_runtime: Path, fake_llm: _FakeLLM, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    home = tmp_path / "home"
+    (home / ".aws").mkdir(parents=True)
+    (home / ".aws/credentials").write_text("[default]\naws_access_key_id = planted\n")
+    seen = tmp_path / "pi-home"
+    dump = tmp_path / "pi-home.mjs"
+    dump.write_text(
+        f"import {{ writeFileSync }} from 'node:fs';\n"
+        f"writeFileSync({json.dumps(str(seen))}, process.env.HOME);\n"
+    )
+    monkeypatch.setenv("NODE_OPTIONS", f'{os.environ["NODE_OPTIONS"]} --import="{dump}"')
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.chdir(HERE)
+    monkeypatch.setenv("PI_COMMAND", os.path.relpath(PI, HERE))
+    harness = _implementation().PiHarness()
+    fake_llm.script("Done.")
+
+    with _episode(harness, "isolated-home") as predict:
+        assert predict(_user("Go."))["content"] == "Done."
+        pi = harness.episodes["isolated-home"]
+        state = pi._request({"type": "get_state"}, time.monotonic() + 5)
+        assert state["data"]["autoCompactionEnabled"] is False
+        assert seen.read_text() == pi.home != str(home)
+    assert not Path(pi.home).exists()
+
+
+def test_pi_exit_raises_with_its_stderr(pi_runtime: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("PI_PROVIDER")
+    monkeypatch.setenv("PI_MODEL", "no-such-model")
+    harness = _implementation().PiHarness()
+
+    with _episode(harness, "unknown-model") as predict:
+        for _ in range(2):  # the second predict writes to pi's closed stdin
+            with pytest.raises(RuntimeError, match='"no-such-model" not found'):
+                predict(_user("Go."))
 
 
 @pytest.mark.parametrize("failure", ["no-api-key", "provider-error"])
