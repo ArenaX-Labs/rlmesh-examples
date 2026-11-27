@@ -30,14 +30,12 @@ def test_harness_solves_served_addition_task(
     assert episode.success is True
     assert episode.terminated and episode.steps == 1
 
-    (transcript,) = (tmp_path / "transcripts").glob("*.jsonl")
-    lines = [json.loads(line) for line in transcript.read_text().splitlines()]
-    calls = [line for line in lines if "call" in line]
-    assert [call["response"]["content"] for call in calls] == ["", "5"]
-    (prompt,) = calls[0]["request"]["messages"]
-    assert prompt["role"] == "user" and "2 + 3" in prompt["content"]
-    assert calls[-1]["response"] == {"role": "assistant", "content": "5"}
-    assert lines[-1]["event"] == "episode_end" and lines[-1]["calls"] == 2
+    (path,) = (tmp_path / "trajectories").glob("*.json")
+    trajectory = json.loads(path.read_text())
+    user, agent = trajectory["steps"]
+    assert user["source"] == "user" and "2 + 3" in user["message"]
+    assert (agent["source"], agent["message"], agent["llm_call_count"]) == ("agent", "5", 1)
+    assert agent["extra"]["rlmesh_step"] == 0
     (env_log,) = (tmp_path / "env").glob("*.jsonl")
     assert json.loads(env_log.read_text())["rewards"] == {"correct": 1.0}
 
@@ -478,34 +476,6 @@ def test_probe_random_text_is_answered_without_the_llm(
     assert json.loads(harness.predict("[1]", context))["content"] == ""
 
 
-def test_transcript_redacts_image_data_urls(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.syspath_prepend(str(HERE))
-    from harness import redact_images
-
-    image = {"type": "image_url", "image_url": {"url": "data:image/png;base64,QUJD"}}
-    remote = {"type": "image_url", "image_url": {"url": "https://x/a.png"}}
-    text = {"type": "text", "text": "hi"}
-    messages = [
-        {"role": "system", "content": "rules"},
-        {"role": "user", "content": [image, remote, text]},
-    ]
-    assert redact_images(messages) == [
-        {"role": "system", "content": "rules"},
-        {
-            "role": "user",
-            "content": [
-                {
-                    "type": "image_url",
-                    "image_url": {"url": "data:image/png;base64,<4 bytes>"},
-                },
-                remote,
-                text,
-            ],
-        },
-    ]
-    assert image["image_url"]["url"] == "data:image/png;base64,QUJD"
-
-
 def test_predict_logs_redacted_images_but_sends_them(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -544,14 +514,44 @@ def test_predict_logs_redacted_images_but_sends_them(
 
     assert sent[0][0]["content"][0]["image_url"]["url"] == url
     assert context["state"]["messages"][0]["content"][0]["image_url"]["url"] == url
-    (line,) = (tmp_path / "transcripts" / "ep.jsonl").read_text().splitlines()
-    assert "QUJD" not in line
-    record = json.loads(line)
-    assert (
-        record["request"]["messages"][0]["content"][0]["image_url"]["url"]
-        == "data:image/png;base64,<4 bytes>"
+    text = (tmp_path / "trajectories" / "ep.json").read_text()
+    assert "QUJD" not in text
+    user, agent = json.loads(text)["steps"]
+    assert user["message"] == "[image image/png, 4 bytes]"
+    assert "<redacted>" in agent["extra"]["error"]
+
+
+def test_trajectory_pairs_tool_results_with_their_calls(tmp_path: Path) -> None:
+    sys.path.insert(0, str(HERE))
+    from trajectory import Trajectory
+
+    trajectory = Trajectory(tmp_path / "t.json", "ep", 3, "agent", "m")
+    trajectory.observe([{"role": "user", "content": "go"}], [])
+    call = {"id": "c1", "function": {"name": "run_shell", "arguments": '{"command": "ls"}'}}
+    usage = {"input_tokens": 10, "cache_read_input_tokens": 5, "output_tokens": 2}
+    trajectory.reply(
+        {"role": "assistant", "content": "", "reasoning": "look", "tool_calls": [call]},
+        [usage, usage],
+        rlmesh_step=0,
+        latency_ms=1.0,
     )
-    assert "<redacted>" in record["error"]
+    trajectory.observe(
+        [
+            {"role": "tool", "tool_call_id": "c1", "content": "a.txt"},
+            {"role": "user", "content": "more"},
+        ],
+        [],
+    )
+    trajectory.save()
+
+    document = json.loads((tmp_path / "t.json").read_text())
+    _, agent, follow_up = document["steps"]
+    assert agent["tool_calls"][0]["arguments"] == {"command": "ls"}
+    assert agent["observation"]["results"] == [{"source_call_id": "c1", "content": "a.txt"}]
+    assert agent["metrics"] == {"prompt_tokens": 30, "completion_tokens": 4, "cached_tokens": 10}
+    assert (agent["reasoning_content"], agent["llm_call_count"]) == ("look", 2)
+    assert (follow_up["source"], follow_up["step_id"]) == ("user", 3)
+    assert document["final_metrics"]["total_prompt_tokens"] == 30
 
 
 def test_anthropic_turns_replay_native_blocks_and_merge_tool_results(

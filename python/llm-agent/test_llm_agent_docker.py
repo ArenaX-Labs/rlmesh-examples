@@ -68,5 +68,5 @@ def test_harness_image_solves_addition_env_image(
     run_docker.main()
 
     assert "seed=0 steps=1 reward=1.000 success=True" in capsys.readouterr().out
-    assert len(list((output / "transcripts").glob("*.jsonl"))) == 1
+    assert len(list((output / "trajectories").glob("*.json"))) == 1
     assert len(list((output / "env").glob("*.jsonl"))) == 1

@@ -17,8 +17,8 @@ cd python/llm-agent
 uv run run.py 127.0.0.1:5555 -n 2    # in a second terminal, from python/llm-agent
 ```
 
-It prints each episode's steps, reward and success, and writes every LLM call to
-`runs/<timestamp>/transcripts/`. Seeds `0..n-1` pick the tasks, so a run reproduces.
+It prints each episode's steps, reward and success, and writes each episode's trajectory to
+`runs/<timestamp>/trajectories/`. Seeds `0..n-1` pick the tasks, so a run reproduces.
 
 ## The RLMesh part
 
@@ -151,10 +151,10 @@ and [`run.py`](run.py) is `LLMHarness(...).run(args.address, seeds=list(range(ar
   output. RLMesh records it as the `render` camera; ask for one frame per second with
   `"record": {"video": {"raw": ["render"], "fps": 1}}`.
 - **Output.** Both sides write under `$RLMESH_OUTPUT_DIR` (default `./runs/<timestamp>`):
-  `transcripts/<episode_id>.jsonl` from the harness (one line per LLM call with the step, the
-  episode seed (which RLMesh also records per episode), the request, the reply, its `reasoning` when
-  the provider returns one, and usage; then `episode_end`) and `env/seed-<seed>.jsonl` from the env
-  (one line per finished episode). The harness also prints one line per step to stderr (reply, tool
-  calls, tokens, start of the thinking), which Managed shows as the model log. The pi harness writes
-  one line per step instead: the step, the episode seed, the request (`PI_MODEL` and the
-  observation's messages), pi's action and the latency.
+  `trajectories/<episode_id>.json` from the harness, an
+  [ATIF](https://github.com/harbor-framework/harbor/blob/main/rfcs/0001-trajectory-format.md)
+  trajectory ([`trajectory.py`](trajectory.py)): the env's messages, then one step per agent turn
+  with its reasoning when the provider returns one, tool calls and their results, token counts and
+  the RLMesh step it answered; and `env/seed-<seed>.jsonl` from the env (one line per finished
+  episode). The harness also prints one line per step to stderr (reply, tool calls, tokens, start of
+  the thinking), which Managed shows as the model log. The pi harness writes the same trajectory.

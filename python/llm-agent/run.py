@@ -22,7 +22,7 @@ def main() -> None:
             f"seed={episode.seed} steps={episode.steps} reward={episode.reward:.3f} "
             f"success={episode.success} truncated={episode.truncated}"
         )
-    print(f"mean_reward={result.mean_reward:.3f} transcripts={harness.transcripts}")
+    print(f"mean_reward={result.mean_reward:.3f} trajectories={harness.trajectories}")
 
 
 if __name__ == "__main__":
