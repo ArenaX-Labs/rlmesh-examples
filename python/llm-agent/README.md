@@ -66,6 +66,11 @@ and [`run.py`](run.py) is `LLMHarness(...).run(args.address, seeds=list(range(ar
   `http://localhost:11434/v1`) and `OPENAI_API_KEY`. For Claude, set `ANTHROPIC_API_KEY` (what an
   Anthropic connection on RLMesh Managed provides) and pass `--model claude-sonnet-5-5`: the harness
   then calls Anthropic's Messages API with adaptive thinking and logs Claude's summarized thinking.
+  When `RLMESH_LLM` holds a [models.dev](https://models.dev) `provider/model` (such as
+  `anthropic/claude-sonnet-5-5` or `nebius/Qwen/Qwen3-235B-A22B-Instruct-2507`), it wins over
+  `--model` defaults and `OPENAI_MODEL`: `anthropic` goes to the Messages API, every other provider
+  to `OPENAI_BASE_URL`, with the part after the first `/` as the model id. Rate limits and server
+  errors are retried within the step's budget.
 
   ```bash
   ollama pull qwen3:4b && ollama serve    # gemma3:4b for color-codeword's images
@@ -124,6 +129,9 @@ and [`run.py`](run.py) is `LLMHarness(...).run(args.address, seeds=list(range(ar
   The env is the same with `env-v0.Dockerfile` and `serve_v0:EnvironmentEnv`. Add your provider key
   under Settings → Connections, then name it on the model in the evaluation request:
   `{"models": [{"model": "<namespace>/llm-harness", "connections": ["conn_..."]}], "tasks": [{"taskId": "wordle", "env": "<namespace>/llm-env-wordle", "episodes": 3}]}`.
+  Named under `harnesses` with an `llm` instead, the harness runs beside each episode's env and
+  Managed sets `RLMESH_LLM`:
+  `{"harnesses": [{"harness": "<namespace>/llm-harness", "llm": "anthropic/claude-sonnet-5-5", "connections": ["conn_..."]}], "tasks": [...]}`.
 
 - **Terminal-Bench 2.** [`terminal_env.py`](terminal_env.py) serves one
   [Terminal-Bench 2](https://github.com/harbor-framework/terminal-bench-2) task: the agent gets the
@@ -140,9 +148,10 @@ and [`run.py`](run.py) is `LLMHarness(...).run(args.address, seeds=list(range(ar
 
 - **pi.** [`pi_harness.py`](pi_harness.py) runs the [pi](https://github.com/badlogic/pi-mono) coding
   agent per episode with only the env's tools ([`pi_tools.js`](pi_tools.js)); each tool call becomes
-  the action and runs in the env. `PI_PROVIDER` and `PI_MODEL` pick the model (`openai` with
-  `OPENAI_BASE_URL` for an OpenAI-compatible server); `docker/pi-harness.Dockerfile` builds it.
-  Tests need `npm install --prefix .venv-pi --save-exact @mariozechner/pi-coding-agent@0.73.1`.
+  the action and runs in the env. `RLMESH_LLM`, else `PI_PROVIDER` and `PI_MODEL`, pick the model
+  (`openai` with `OPENAI_BASE_URL` for an OpenAI-compatible server); `docker/pi-harness.Dockerfile`
+  builds it. Tests need
+  `npm install --prefix .venv-pi --save-exact @mariozechner/pi-coding-agent@0.73.1`.
 
 - **Video.** Every chat env offers `render()` ([`render.py`](render.py)), a 1280×720 frame: the
   latest messages of the chat, or, when the task answers in Wordle-style `G`/`Y`/`X` rows, the

@@ -415,22 +415,39 @@ def test_pi_step_timeout_returns_empty_action_and_recovers(
 
 
 @pytest.mark.parametrize(
-    ("provider", "model", "path", "header", "credential"),
+    ("llm", "provider", "model", "path", "header", "credential"),
     [
         (
+            "",
             "openai",
             "another-model",
             "/v1/chat/completions",
             "authorization",
             "Bearer fixture-openai-key",
         ),
-        ("anthropic", "claude-sonnet-4-6", "/v1/messages", "x-api-key", "fixture-anthropic-key"),
+        (
+            "",
+            "anthropic",
+            "claude-sonnet-4-6",
+            "/v1/messages",
+            "x-api-key",
+            "fixture-anthropic-key",
+        ),
+        (
+            "anthropic/claude-sonnet-5-5",
+            "anthropic",
+            "claude-sonnet-5-5",
+            "/v1/messages",
+            "x-api-key",
+            "fixture-anthropic-key",
+        ),
     ],
 )
 def test_pi_selects_provider_and_model_from_environment(
     pi_runtime: Path,
     fake_llm: _FakeLLM,
     monkeypatch: pytest.MonkeyPatch,
+    llm: str,
     provider: str,
     model: str,
     path: str,
@@ -438,8 +455,9 @@ def test_pi_selects_provider_and_model_from_environment(
     credential: str,
 ) -> None:
     monkeypatch.setenv("ANTHROPIC_API_KEY", "fixture-anthropic-key")
-    monkeypatch.setenv("PI_PROVIDER", provider)
-    monkeypatch.setenv("PI_MODEL", model)
+    monkeypatch.setenv("RLMESH_LLM", llm)
+    monkeypatch.setenv("PI_PROVIDER", "openai" if llm else provider)
+    monkeypatch.setenv("PI_MODEL", "another-model" if llm else model)
     monkeypatch.setenv("PI_COMMAND", "unused-when-command-is-explicit")
     harness = _implementation().PiHarness(pi_command=[str(PI)])
     fake_llm.script("Correct provider.")

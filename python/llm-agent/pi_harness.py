@@ -2,7 +2,7 @@
 
 Each episode gets one ``pi --mode rpc`` process whose only tools are the env's (``pi_tools.js``).
 When pi calls one, predict returns the call as the action; the env's result in the next
-observation answers it. Provider and model come from ``$PI_PROVIDER`` and ``$PI_MODEL``.
+observation answers it. Provider and model come from ``$RLMESH_LLM``, else ``$PI_PROVIDER`` and ``$PI_MODEL``.
 """
 
 from __future__ import annotations
@@ -23,11 +23,19 @@ from typing import Any
 
 import rlmesh
 from chat_env import Message, output_dir
-from harness import STEP_BUDGET_S, _text
+from harness import STEP_BUDGET_S, _text, split_llm
 from rlmesh.types import PredictContext
 from trajectory import Trajectory
 
 EXTENSION = Path(__file__).resolve().with_name("pi_tools.js")
+
+
+def pi_llm() -> tuple[str, str]:
+    """pi's provider and model: ``$RLMESH_LLM`` when RLMesh Managed names one, else
+    ``$PI_PROVIDER`` and ``$PI_MODEL``."""
+    if llm := os.environ.get("RLMESH_LLM"):
+        return split_llm(llm)
+    return os.environ.get("PI_PROVIDER", ""), os.environ.get("PI_MODEL", "")
 
 
 def _empty() -> Message:
@@ -41,9 +49,9 @@ class _Pi:
         self.args = [*command, "--mode", "rpc", "--no-session", "--offline", "--no-builtin-tools"]
         self.args += ["--no-extensions", "--no-skills", "--no-prompt-templates", "--no-themes"]
         self.args += ["--no-context-files", "-e", str(EXTENSION)]
-        for flag, var in (("--provider", "PI_PROVIDER"), ("--model", "PI_MODEL")):
-            if os.environ.get(var):
-                self.args += [flag, os.environ[var]]
+        for flag, value in zip(("--provider", "--model"), pi_llm(), strict=True):
+            if value:
+                self.args += [flag, value]
         # A fresh agent dir, cwd and HOME keep pi off ~/.pi, any .pi/ and ambient cloud credentials.
         self.home = tempfile.mkdtemp(prefix="pi-agent-")
         self.stderr = Path(self.home) / "stderr.log"
@@ -274,7 +282,7 @@ class PiHarness(rlmesh.Model):
                 episode,
                 context["episode_seed"],
                 "pi",
-                os.environ.get("PI_MODEL", ""),
+                "/".join(part for part in pi_llm() if part),
             ),
         )
         trajectory.observe(messages, obs.get("tools") or [])

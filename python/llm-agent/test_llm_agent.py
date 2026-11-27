@@ -708,3 +708,90 @@ def test_render_draws_each_wordle_row_and_the_latest_turn(
     env.step(json.dumps({"role": "assistant", "content": "5"}))
     assert [m["role"] for m in env.history] == ["user", "assistant", "user"]
     assert env.render().shape == (720, 1280, 3)
+
+
+@pytest.mark.parametrize(
+    ("llm", "backend", "sent", "recorded"),
+    [
+        (
+            "anthropic/claude-sonnet-5-5",
+            "anthropic",
+            ("claude-sonnet-5-5",),
+            "anthropic/claude-sonnet-5-5",
+        ),
+        (
+            "nebius/Qwen/Qwen3-235B-A22B-Instruct-2507",
+            "openai",
+            ("Qwen/Qwen3-235B-A22B-Instruct-2507", "nebius"),
+            "nebius/Qwen/Qwen3-235B-A22B-Instruct-2507",
+        ),
+        ("", "openai", ("qwen3:4b",), "qwen3:4b"),
+    ],
+)
+def test_rlmesh_llm_picks_the_backend_and_model(
+    llm: str,
+    backend: str,
+    sent: tuple[str, ...],
+    recorded: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("RLMESH_OUTPUT_DIR", str(tmp_path))
+    monkeypatch.setenv("RLMESH_LLM", llm)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_MODEL", raising=False)
+    monkeypatch.syspath_prepend(str(HERE))
+    import harness
+
+    calls: list[tuple[str, tuple[Any, ...]]] = []
+    for name in ("anthropic", "openai"):
+        monkeypatch.setattr(
+            harness,
+            f"{name}_chat",
+            lambda *args, name=name: calls.append((name, args)) or (lambda m, t: ({}, None)),
+        )
+    assert harness.LLMHarness().model_name == recorded
+    ((got, args),) = calls
+    assert got == backend and tuple(a for a in args if isinstance(a, str) and a) == sent
+
+
+class _StatusError(Exception):
+    def __init__(self, status: int, retry_after: str | None = None) -> None:
+        self.status_code = status
+        self.response = SimpleNamespace(headers={"retry-after": retry_after} if retry_after else {})
+
+
+@pytest.mark.parametrize(
+    ("errors", "budget", "want_sleeps", "succeeds"),
+    [
+        ([_StatusError(429, "3"), _StatusError(529)], 60.0, [3.0, 2.0], True),
+        ([_StatusError(400)], 60.0, [], False),
+        ([_StatusError(429, "30")], 10.0, [], False),
+    ],
+)
+def test_with_backoff_retries_rate_limits_within_the_budget(
+    errors: list[Exception],
+    budget: float,
+    want_sleeps: list[float],
+    succeeds: bool,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.syspath_prepend(str(HERE))
+    import harness
+
+    sleeps: list[float] = []
+    monkeypatch.setattr(harness.time, "sleep", sleeps.append)
+    pending = list(errors)
+
+    def create(timeout: float) -> str:
+        assert 0 < timeout <= budget
+        if pending:
+            raise pending.pop(0)
+        return "reply"
+
+    if succeeds:
+        assert harness.with_backoff(create, budget) == "reply"
+    else:
+        with pytest.raises(_StatusError):
+            harness.with_backoff(create, budget)
+    assert sleeps == want_sleeps
