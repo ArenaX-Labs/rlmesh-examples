@@ -454,3 +454,121 @@ def test_pi_dockerfile_pins_agent_and_sdk_and_serves_harness() -> None:
         "rlmesh.serve",
         "pi_harness:PiHarness",
     ]
+
+
+def _system_prompt(request: dict[str, Any]) -> str:
+    return "\n".join(
+        _text(msg["content"])
+        for msg in request["messages"]
+        if msg["role"] in ("system", "developer")
+    )
+
+
+def test_pi_sends_env_system_message_as_text_without_model_pod_paths(
+    pi_runtime: Path, fake_llm: _FakeLLM, tmp_path: Path
+) -> None:
+    secret = tmp_path / "model-pod-secret.txt"
+    secret.write_text("model pod secret contents")
+    harness = _implementation().PiHarness()
+    fake_llm.script("Done.")
+
+    with _episode(harness, "system") as predict:
+        predict({"role": "system", "content": str(secret)}, _user("Go."))
+    ((_, _, request),) = fake_llm.requests
+    system = _system_prompt(request)
+    assert str(secret) in system
+    assert "model pod secret contents" not in system
+    for leak in ("Current working directory", str(HERE), str(tmp_path / "agent"), PI_PACKAGE):
+        assert leak not in system
+
+
+def test_pi_ignores_user_agent_dirs_and_uses_injected_key(
+    pi_runtime: Path, fake_llm: _FakeLLM, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    home = tmp_path / "home"
+    planted = {
+        "auth.json": json.dumps({"anthropic": {"type": "api_key", "key": "planted-key"}}),
+        "settings.json": json.dumps({"defaultModel": "planted-model"}),
+        "models.json": json.dumps({"providers": {}}),
+        "SYSTEM.md": "PLANTED SYSTEM PROMPT",
+    }
+    dirs = [home / ".pi/agent", tmp_path / "agent"]
+    for directory in dirs:
+        directory.mkdir(parents=True)
+        for name, content in planted.items():
+            (directory / name).write_text(content)
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "fixture-anthropic-key")
+    monkeypatch.setenv("PI_PROVIDER", "anthropic")
+    monkeypatch.setenv("PI_MODEL", "claude-sonnet-4-6")
+    harness = _implementation().PiHarness()
+    fake_llm.script("Injected.")
+
+    with _episode(harness, "isolated") as predict:
+        assert predict(_user("Go."))["content"] == "Injected."
+    ((_, headers, body),) = fake_llm.requests
+    assert headers["x-api-key"] == "fixture-anthropic-key"
+    assert "PLANTED" not in json.dumps(body)
+    for directory in dirs:
+        assert {path.name: path.read_text() for path in directory.iterdir()} == planted
+
+
+def test_pi_timeout_without_abort_ack_restarts_and_drops_stale_turn(
+    pi_runtime: Path, fake_llm: _FakeLLM, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = _implementation()
+    monkeypatch.setattr(module, "STEP_BUDGET_S", 3.0)
+    request = module._Pi._request
+
+    def ignore_abort(self: Any, command: dict[str, Any], deadline: float) -> Any:
+        if command["type"] == "abort":
+            time.sleep(max(0.0, deadline - time.monotonic()))
+            return None
+        return request(self, command, deadline)
+
+    monkeypatch.setattr(module._Pi, "_request", ignore_abort)
+    harness = module.PiHarness()
+    release = threading.Event()
+
+    def stall() -> str:
+        release.wait(timeout=6)
+        return "Stale reply."
+
+    fake_llm.script(stall, "Recovered.")
+    with _episode(harness, "no-ack") as predict:
+        started = time.monotonic()
+        try:
+            assert predict(_user("Wait.")) == {"role": "assistant", "content": ""}
+            assert time.monotonic() - started < 3.5
+        finally:
+            release.set()
+        assert predict(_user("Try again.")) == {"role": "assistant", "content": "Recovered."}
+        first, second = _pids(pi_runtime)
+        assert not _alive(first) and _alive(second)
+
+
+@pytest.mark.parametrize("failure", ["no-api-key", "provider-error"])
+def test_pi_raises_promptly_when_pi_rejects_the_prompt(
+    pi_runtime: Path, monkeypatch: pytest.MonkeyPatch, failure: str
+) -> None:
+    if failure == "no-api-key":
+        monkeypatch.setenv("PI_PROVIDER", "anthropic")
+        monkeypatch.setenv("PI_MODEL", "claude-sonnet-4-6")
+    harness = _implementation().PiHarness()
+    started = time.monotonic()
+    with _episode(harness, failure) as predict, pytest.raises(RuntimeError) as error:
+        predict(_user("Go."))
+    assert time.monotonic() - started < 10
+    assert ("API key" if failure == "no-api-key" else "400") in str(error.value)
+
+
+def test_pi_close_ends_every_live_process(pi_runtime: Path, fake_llm: _FakeLLM) -> None:
+    harness = _implementation().PiHarness()
+    fake_llm.script("One.", "Two.")
+    with _episode(harness, "one") as first, _episode(harness, "two") as second:
+        first(_user("Go."))
+        second(_user("Go."))
+        pids = _pids(pi_runtime)
+        assert len(pids) == 2 and all(map(_alive, pids))
+        harness.close()
+        assert not any(map(_alive, pids))

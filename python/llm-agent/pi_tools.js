@@ -15,6 +15,12 @@ export default function (pi) {
     });
   }
 
+  // pi's own prompt names its cwd and docs, which are on the model pod, not where the tools run.
+  const system = ["You are an agent. Your tools run in the task's environment.", process.env.PI_ENV_SYSTEM]
+    .filter(Boolean)
+    .join("\n\n");
+  pi.on("before_agent_start", () => ({ systemPrompt: system }));
+
   const { PI_PROVIDER, PI_MODEL, OPENAI_BASE_URL } = process.env;
   // pi's built-in openai provider speaks the Responses API at api.openai.com; a base URL means
   // an OpenAI-compatible server (Nebius, vLLM, Ollama), which speaks Chat Completions.

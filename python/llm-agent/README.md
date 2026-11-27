@@ -155,4 +155,6 @@ and [`run.py`](run.py) is `LLMHarness(...).run(args.address, seeds=list(range(ar
   episode seed (which RLMesh also records per episode), the request, the reply, its `reasoning` when
   the provider returns one, and usage; then `episode_end`) and `env/seed-<seed>.jsonl` from the env
   (one line per finished episode). The harness also prints one line per step to stderr (reply, tool
-  calls, tokens, start of the thinking), which Managed shows as the model log.
+  calls, tokens, start of the thinking), which Managed shows as the model log. The pi harness
+  writes one line per step instead: the step, the episode seed, the request (`PI_MODEL` and the
+  observation's messages), pi's action and the latency.

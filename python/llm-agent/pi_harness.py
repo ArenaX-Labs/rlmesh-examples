@@ -7,10 +7,13 @@ observation answers it. Provider and model come from ``$PI_PROVIDER`` and ``$PI_
 
 from __future__ import annotations
 
+import itertools
 import json
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 from pathlib import Path
@@ -22,7 +25,7 @@ from chat_env import Message, append_jsonl, output_dir
 from harness import STEP_BUDGET_S, _text, redact_images
 from rlmesh.types import PredictContext
 
-EXTENSION = Path(__file__).with_name("pi_tools.js")
+EXTENSION = Path(__file__).resolve().with_name("pi_tools.js")
 
 
 def _empty() -> Message:
@@ -33,32 +36,44 @@ class _Pi:
     """One pi process in RPC mode, holding one episode's conversation."""
 
     def __init__(self, command: list[str], tools: list[dict[str, Any]], system: str) -> None:
-        args = [*command, "--mode", "rpc", "--no-session", "--offline", "--no-builtin-tools"]
-        args += ["--no-extensions", "--no-skills", "--no-prompt-templates", "--no-themes"]
-        args += ["--no-context-files", "-e", str(EXTENSION)]
+        self.args = [*command, "--mode", "rpc", "--no-session", "--offline", "--no-builtin-tools"]
+        self.args += ["--no-extensions", "--no-skills", "--no-prompt-templates", "--no-themes"]
+        self.args += ["--no-context-files", "-e", str(EXTENSION)]
         for flag, var in (("--provider", "PI_PROVIDER"), ("--model", "PI_MODEL")):
             if os.environ.get(var):
-                args += [flag, os.environ[var]]
-        if system:
-            args += ["--append-system-prompt", system]
-        env = {**os.environ, "PI_ENV_TOOLS": json.dumps(tools)}
+                self.args += [flag, os.environ[var]]
+        # A fresh agent dir and cwd keep pi off ~/.pi and any .pi/ (auth, settings, SYSTEM.md).
+        self.home = tempfile.mkdtemp(prefix="pi-agent-")
+        self.env = {
+            **os.environ,
+            "PI_CODING_AGENT_DIR": self.home,
+            "PI_ENV_TOOLS": json.dumps(tools),
+            "PI_ENV_SYSTEM": system,
+        }
+        self.ids = itertools.count()
+        self._start()
+
+    def _start(self) -> None:
         self.process = subprocess.Popen(
-            args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, env=env
+            self.args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, env=self.env, cwd=self.home
         )
         self.events: Queue[dict[str, Any] | None] = Queue()
         self.pending: dict[str, str] = {}
-        threading.Thread(target=self._read, daemon=True).start()
+        # After an abort, events of the abandoned turn can still arrive; skip to the next agent_start.
+        self.stale = False
+        threading.Thread(target=self._read, args=(self.process, self.events), daemon=True).start()
         # A retry starts after agent_end, which predict already took as the final reply.
         self._send({"type": "set_auto_retry", "enabled": False})
 
-    def _read(self) -> None:
-        assert self.process.stdout
-        for line in self.process.stdout:
+    @staticmethod
+    def _read(process: subprocess.Popen[bytes], events: Queue[dict[str, Any] | None]) -> None:
+        assert process.stdout
+        for line in process.stdout:
             try:
-                self.events.put(json.loads(line))
+                events.put(json.loads(line))
             except ValueError:
                 pass
-        self.events.put(None)
+        events.put(None)
 
     def _send(self, command: dict[str, Any]) -> None:
         assert self.process.stdin
@@ -75,9 +90,10 @@ class _Pi:
         return event
 
     def _request(self, command: dict[str, Any], deadline: float) -> dict[str, Any] | None:
-        self._send({**command, "id": command["type"]})
+        id = f"{command['type']}-{next(self.ids)}"
+        self._send({**command, "id": id})
         while event := self._next(deadline):
-            if event["type"] == "response" and event.get("id") == command["type"]:
+            if event["type"] == "response" and event.get("id") == id:
                 return event
         return None
 
@@ -92,11 +108,17 @@ class _Pi:
         if prompt:
             # While pi waits on tool results, steer delivers the prompt before its next LLM call.
             self._send({"type": "prompt", "message": prompt, "streamingBehavior": "steer"})
-        action = self._reply(deadline)
+        # Keep part of the budget to abort the turn if pi has not answered by then.
+        abort_at = deadline - min(10.0, max(0.0, deadline - time.monotonic()) / 4)
+        action = self._reply(abort_at)
         if action is None:
             # Abort waits for pi to go idle, which also cancels its pending tool calls.
-            self._request({"type": "abort"}, time.monotonic() + 10)
-            self.pending.clear()
+            if self._request({"type": "abort"}, deadline):
+                self.pending.clear()
+                self.stale = True
+            else:
+                self._kill()
+                self._start()
             return _empty()
         return action
 
@@ -106,7 +128,13 @@ class _Pi:
         requested: dict[str, dict[str, Any]] = {}
         while event := self._next(deadline):
             kind = event["type"]
-            if kind == "message_end" and event["message"]["role"] == "assistant":
+            if kind == "response" and not event["success"]:
+                if event["command"] == "prompt":
+                    raise RuntimeError(f"pi rejected the prompt: {event.get('error')}")
+                print(f"pi: {event['command']}: {event.get('error')}", file=sys.stderr, flush=True)
+            elif self.stale:
+                self.stale = kind != "agent_start"
+            elif kind == "message_end" and event["message"]["role"] == "assistant":
                 content = event["message"]["content"]
                 text = "".join(part["text"] for part in content if part["type"] == "text")
                 calls = [part["id"] for part in content if part["type"] == "toolCall"]
@@ -118,8 +146,6 @@ class _Pi:
                 requested[call["id"]] = call
             elif kind == "agent_end":
                 return self._final(event["messages"], deadline)
-            elif kind == "response" and not event["success"]:
-                print(f"pi: {event['command']}: {event.get('error')}", file=sys.stderr, flush=True)
             waiting = [id for id in calls if id in requested]
             if waiting and all(id in requested or id in ended for id in calls):
                 return {
@@ -150,18 +176,22 @@ class _Pi:
         last = next((m for m in reversed(messages) if m["role"] == "assistant"), None)
         if last is None:
             return _empty()
-        if last.get("errorMessage"):
-            print(f"pi: {last['errorMessage']}", file=sys.stderr, flush=True)
+        if last.get("stopReason") == "error":
+            raise RuntimeError(f"pi: {last.get('errorMessage')}")
         text = "".join(part["text"] for part in last["content"] if part["type"] == "text")
         return {"role": "assistant", "content": text}
+
+    def _kill(self) -> None:
+        self.process.kill()
+        self.process.wait()
 
     def close(self) -> None:
         self.process.terminate()
         try:
             self.process.wait(timeout=5)
         except subprocess.TimeoutExpired:
-            self.process.kill()
-            self.process.wait()
+            self._kill()
+        shutil.rmtree(self.home, ignore_errors=True)
 
 
 class PiHarness(rlmesh.Model):
@@ -175,6 +205,8 @@ class PiHarness(rlmesh.Model):
         self.pi_command = pi_command or os.environ.get("PI_COMMAND", "pi").split()
         self.transcripts = output_dir() / "transcripts"
         self.transcripts.mkdir(exist_ok=True)
+        # TODO: an episode torn down without on_episode_end (served-path teardown fires no hook) keeps
+        # its pi process until close(); reap idle processes once long-lived servers leak them.
         self.episodes: dict[str, _Pi] = {}
         super().__init__()
 
@@ -214,3 +246,7 @@ class PiHarness(rlmesh.Model):
         pi = self.episodes.pop(episode_id or "episode", None)
         if pi:
             pi.close()
+
+    def close(self) -> None:
+        while self.episodes:
+            self.episodes.popitem()[1].close()
