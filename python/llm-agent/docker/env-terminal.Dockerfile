@@ -5,9 +5,11 @@ ARG TASK_IMAGE
 FROM ${TASK_IMAGE}
 # What the task's test.sh apt-installs: the env pod's egress cannot reach the apt mirrors.
 ARG APT_PACKAGES=""
+# An end-of-life Debian (bullseye) is served only from archive.debian.org.
 RUN if [ -n "$APT_PACKAGES" ]; then \
-      apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y $APT_PACKAGES \
-      && rm -rf /var/lib/apt/lists/*; \
+      install() { apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y $APT_PACKAGES; }; \
+      { install || { sed -i 's#deb.debian.org/debian#archive.debian.org/debian#; /-updates/d' \
+          /etc/apt/sources.list && install; }; } && rm -rf /var/lib/apt/lists/*; \
     fi
 
 COPY python/ /opt/rlmesh/python/
