@@ -138,6 +138,12 @@ and [`run.py`](run.py) is `LLMHarness(...).run(args.address, seeds=list(range(ar
   `CAP_SYS_PTRACE` it cannot read the non-dumpable server's memory. A step that submits keeps 150 s
   of the runner's 300 s step limit for the tests.
 
+- **pi.** [`pi_harness.py`](pi_harness.py) runs the [pi](https://github.com/badlogic/pi-mono)
+  coding agent per episode with only the env's tools ([`pi_tools.js`](pi_tools.js)); each tool call
+  becomes the action and runs in the env. `PI_PROVIDER` and `PI_MODEL` pick the model
+  (`openai` with `OPENAI_BASE_URL` for an OpenAI-compatible server); `docker/pi-harness.Dockerfile`
+  builds it. Tests need `npm install --prefix .venv-pi --save-exact @mariozechner/pi-coding-agent@0.73.1`.
+
 - **Video.** Every chat env offers `render()` ([`render.py`](render.py)), a 1280×720 frame: the
   latest messages of the chat, or, when the task answers in Wordle-style `G`/`Y`/`X` rows, the
   board, the latest guess and feedback, and a keyboard. A Terminal-Bench task draws the task, the
