@@ -42,9 +42,13 @@ for task in "$@"; do
   cp "$dir/instruction.md" "$ctx/task/"
   echo "terminal-bench/$task" > "$ctx/task/name"
 
+  apt=$(grep -hoE 'apt-get install[^&;|>]*' "$dir/tests/test.sh" | sed 's/apt-get install//' \
+    | tr ' ' '\n' | grep -vE '^-|^$' | sort -u | tr '\n' ' ' || true)
+  pythons=$(grep -hoE -- '(-p|--python) [0-9.]+' "$dir/tests/test.sh" | awk '{print $2}' | sort -u | tr '\n' ' ' || true)
   build=llm-agent-build/tb2-$task
   docker buildx build --platform linux/amd64 --provenance=false --sbom=false --load \
-    -f docker/env-terminal.Dockerfile --build-arg "TASK_IMAGE=$image" -t "$build" "$ctx"
+    -f docker/env-terminal.Dockerfile --build-arg "TASK_IMAGE=$image" \
+    --build-arg "APT_PACKAGES=$apt" --build-arg "UV_PYTHONS=$pythons" -t "$build" "$ctx"
   label=$(docker run --rm --platform linux/amd64 --cpus 2 --memory 2g \
     --entrypoint /opt/rlmesh/python/bin/python3 "$build" -m rlmesh describe terminal_env:TerminalTask --label)
   # OCI media types: the platform registry refuses docker-format manifests.
