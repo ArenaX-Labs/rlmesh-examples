@@ -225,7 +225,9 @@ def _session(calls, verifier_log: str | None, success: bool | None) -> list[tupl
         elif name == "write_file":
             content = str(args.get("content", ""))
             path = args.get("path", "?")
-            lines.append((f"# write_file {path} ({len(content.splitlines())} lines)", OUTCOME["write"]))
+            lines.append(
+                (f"# write_file {path} ({len(content.splitlines())} lines)", OUTCOME["write"])
+            )
             body(content, min(keep, 8), MUTED)
         elif name == "submit":
             lines.append(("$ bash /tests/test.sh", ACCENT))
